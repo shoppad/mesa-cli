@@ -1,6 +1,6 @@
 var request = require("request");
 const config = require('config-yml');
-let apiUrl = 'https://api.getmesa.com/dev/admin';
+let apiUrl = 'https://api.getmesa.com/v1/admin';
 
 module.exports = function(method, data){
 
