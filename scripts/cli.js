@@ -17,11 +17,17 @@ program
 
 let [cmd, ... files] = program.args;
 
-const config = require('config-yml').load(program.env ? program.env : null);
+let config;
+if (!config.key) {
+  const configFile = program.env ? program.env : 'config';
+  return console.log(`Could not find an appropriate ${configFile}.yml file. Exiting.`);
+}
 
 // Get the current dir
 const dir = process.env.INIT_CWD;
 console.log(`Working directory: ${dir}`);
+console.log(`Store: ${config.uuid}.myshopify.com`);
+console.log('');
 
 switch (cmd) {
 
@@ -49,11 +55,11 @@ switch (cmd) {
         // Handle appending a path from mesa.json directories param
         let mesaFilename = filename;
         if (!mesa || !mesa.directories || !mesa.directories.lib) {
-          console.log(`Uploading ${filepath}...`);
+          console.log(`Uploading ${filename}...`);
         }
         else {
           mesaFilename = `${mesa.directories.lib}/${filename}`;
-          console.log(`Uploading ${filepath} as ${mesaFilename}...`);
+          console.log(`Uploading ${filename} as ${mesaFilename}...`);
         }
 
         const contents = fs.readFileSync(filepath, 'utf8');
@@ -80,41 +86,35 @@ switch (cmd) {
     break;
 
 
-  case 'watch':
-
-    // var windows = process.platform === 'win32'
-    // var pathVarName = (windows && !('PATH' in process.env)) ? 'Path' : 'PATH'
-    //
-    // process.env[pathVarName] += path.delimiter + path.join(__dirname, 'node_modules', '.bin');
-    // cmd = system(`npm-watch `)
-
-
-    // var watchPackage = require('./watch-package')
-    // var watcher = watchPackage(process.argv[3] || process.cwd(), process.exit, process.argv[2])
-    //
-
-    var windows = process.platform === 'win32'
-    var pathVarName = (windows && !('PATH' in process.env)) ? 'Path' : 'PATH'
-
-    process.env[pathVarName] += path.delimiter + path.join(__dirname, 'node_modules', '.bin')
-
-    var watchPackage = require('./watch-package')
-    var watcher = watchPackage(process.argv[3] || process.cwd(), process.exit, process.argv[2])
-
-    process.stdin.pipe(watcher)
-    watcher.stdout.pipe(process.stdout)
-    watcher.stderr.pipe(process.stderr)
-
+  // case 'watch':
+  //
+  //   // var windows = process.platform === 'win32'
+  //   // var pathVarName = (windows && !('PATH' in process.env)) ? 'Path' : 'PATH'
+  //   //
+  //   // process.env[pathVarName] += path.delimiter + path.join(__dirname, 'node_modules', '.bin');
+  //   // cmd = system(`npm-watch `)
   //
   //
+  //   // var watchPackage = require('./watch-package')
+  //   // var watcher = watchPackage(process.argv[3] || process.cwd(), process.exit, process.argv[2])
+  //   //
   //
-  // npm-watch push
-
+  //   var windows = process.platform === 'win32'
+  //   var pathVarName = (windows && !('PATH' in process.env)) ? 'Path' : 'PATH'
+  //
+  //   process.env[pathVarName] += path.delimiter + path.join(__dirname, 'node_modules', '.bin')
+  //
+  //   var watchPackage = require('./watch-package')
+  //   var watcher = watchPackage(process.argv[3] || process.cwd(), process.exit, process.argv[2])
+  //
+  //   process.stdin.pipe(watcher)
+  //   watcher.stdout.pipe(process.stdout)
+  //   watcher.stderr
 
 }
 
 
-const request = async function(method, endpoint, data){
+async function request(method, endpoint, data){
 
   // Let the api url be overwritten in config.yml
   apiUrl = config.api_url ? config.api_url : apiUrl;
