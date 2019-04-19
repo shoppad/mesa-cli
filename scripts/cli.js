@@ -18,7 +18,9 @@ program
 let [cmd, ... files] = program.args;
 
 // Load config from config.yml
-const config = require('config-yml').load(program.env ? program.env : null);
+let env = program.env ? program.env : null;
+env = process.env.ENV ? process.env.ENV : env;
+const config = require('config-yml').load(env);
 if (!config.key) {
   const configFile = program.env ? program.env : 'config';
   return console.log(`Could not find an appropriate ${configFile}.yml file. Exiting.`);
