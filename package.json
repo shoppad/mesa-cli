@@ -7,25 +7,30 @@
     "url": "git+https://github.com/shoppad/mesa-cli.git"
   },
   "author": "ShopPad",
-  "license": "GNU Affero General Public License v3.0",
+  "license": "AGPL-3.0",
   "bugs": {
     "url": "https://github.com/shoppad/mesa-cli/issues"
   },
   "homepage": "https://getmesa.com",
   "watch": {
-    "upload": {
-      "patterns": ["*.js"],
+    "push": {
+      "patterns": [
+        "*.js"
+      ],
       "runOnChangeOnly": true
     }
   },
   "scripts": {
-    "upload": "node scripts/upload.js *.js",
-    "watch": "npm-watch upload",
-    "push": "node scripts/upload.js"
+    "upload": "./scripts/cli.js push *.js",
+    "watch": "npm-watch push",
+    "push": "./scripts/cli.js push"
+  },
+  "bin": {
+    "mesa": "./scripts/cli.js"
   },
   "dependencies": {
+    "axios": "^0.18.0",
     "config-yml": "^0.10.3",
-    "npm-watch": "^0.6.0",
-    "request": "^2.88.0"
+    "npm-watch": "^0.6.0"
   }
 }

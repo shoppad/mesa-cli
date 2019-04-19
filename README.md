@@ -15,3 +15,9 @@ Optional parameter: `api_url`.
 
 ## Local development
 
+https://medium.com/netscape/a-guide-to-create-a-nodejs-command-line-package-c2166ad0452e
+
+## @todos
+- Handle dependencies
+- Handle recursively uploading dirs
+- Hide source code for all files in vendor/
