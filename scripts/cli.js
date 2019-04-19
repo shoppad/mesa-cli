@@ -1,28 +1,43 @@
 #!/usr/bin/env node
-
+var program = require('commander');
 const fs = require('fs');
 const path = require('path')
-const request = require('./request');
+var axios = require("axios");
 
-// Get arguments
-let [,,cmd, ... files] = process.argv;
+let apiUrl = 'https://api.getmesa.com/dev/admin';
+
+
+// Get arguments and options
+program
+  .version('0.1.0')
+  .usage('[options] <file ...>')
+  .option('-e, --env [myVar]', 'Environment to use (filename in `./config/`)')
+  .option('-f, --force', 'Force')
+  .parse(process.argv);
+
+let [cmd, ... files] = program.args;
+
+const config = require('config-yml').load(program.env ? program.env : null);
 
 // Get the current dir
-const dir = process.cwd();
+const dir = process.env.INIT_CWD;
+console.log(`Working directory: ${dir}`);
 
 switch (cmd) {
 
   case 'push':
 
-    files == [] ? ['package.json'] : files;
+    files == [] ? ['mesa.json'] : files;
 
-    // Read package.json
-    let mesa = fs.readFileSync(`${dir}/package.json`, 'utf8');
-    if (!mesa) {
-      console.log('Could not find package.json...');
-      return;
+    // Read mesa.json
+    let mesa;
+    try {
+      mesa = fs.readFileSync(`${dir}/mesa.json`, 'utf8');
+      mesa = JSON.parse(mesa);
     }
-    mesa = JSON.parse(mesa);
+    catch (e) {
+      //return console.log('Could not find mesa.json. Exiting.');
+    }
 
     files.forEach(function(filename) {
 
@@ -34,11 +49,11 @@ switch (cmd) {
         // Handle appending a path from mesa.json directories param
         let mesaFilename = filename;
         if (!mesa || !mesa.directories || !mesa.directories.lib) {
-          console.log(`Uploading ${filename}...`);
+          console.log(`Uploading ${filepath}...`);
         }
         else {
           mesaFilename = `${mesa.directories.lib}/${filename}`;
-          console.log(`Uploading ${filename} as ${mesaFilename}...`);
+          console.log(`Uploading ${filepath} as ${mesaFilename}...`);
         }
 
         const contents = fs.readFileSync(filepath, 'utf8');
@@ -49,9 +64,13 @@ switch (cmd) {
           }
         });
       }
-      else if (filename === 'package.json') {
-        console.log('Importing configuration from package.json...');
-        request('POST', 'packages/import.json?force=1', mesa);
+      else if (filename === 'mesa.json') {
+        if (!mesa.config) {
+          return console.log('Mesa.json did not contain any config elements. Skipping.');
+        }
+        console.log('Importing configuration from mesa.json...');
+        const force = program.force ? '?force=1': '';
+        request('POST', `packages/import.json${force}`, mesa);
       }
       else {
         console.log(`Skipping ${filename}`);
@@ -86,11 +105,41 @@ switch (cmd) {
     watcher.stdout.pipe(process.stdout)
     watcher.stderr.pipe(process.stderr)
 
-    //
-    //
-    //
-    // npm-watch push
+  //
+  //
+  //
+  // npm-watch push
 
 
 }
 
+
+const request = async function(method, endpoint, data){
+
+  // Let the api url be overwritten in config.yml
+  apiUrl = config.api_url ? config.api_url : apiUrl;
+
+  const options = {
+    url: `${apiUrl}/${config.uuid}/${endpoint}`,
+    method: method,
+    headers: { 'x-api-key': config.key },
+    data: data,
+    json: true,
+  };
+
+  axios(options)
+    .then(function (response) {
+      if (endpoint.indexOf('packages') !== -1) {
+        console.log('Response: ', response.data);
+      }
+      else {
+        console.log('Success');
+      }
+    })
+    .catch(function (error) {
+      console.log(error);
+      console.log('ERROR', `${error.response.status}: ${error.response.statusText}`);
+    });
+
+
+}

@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "axios": "^0.18.0",
+    "commander": "^2.20.0",
     "config-yml": "^0.10.3",
     "npm-watch": "^0.6.0"
   }
