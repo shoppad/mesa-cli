@@ -8,10 +8,19 @@ let apiUrl = 'https://api.getmesa.com/dev/admin';
 
 
 // Get arguments and options
+function list(val) {
+  return val.split(',');
+}
 program
   .version('0.1.0')
   .usage('[options] <file ...>')
-  .option('-e, --env [myVar]', 'Environment to use (filename in `./config/`)')
+  .option('-e, --env [value]', 'Environment to use (filename in `./config/`)')
+  .option('-i, --inputs <list>', 'Comma-separated list of inputs', list)
+  .option('-o, --outputs <list>', 'Comma-separated list of outputs', list)
+  .option('-s, --secrets <list>', 'Comma-separated list of secrets', list)
+  .option('--storage <list>', 'Comma-separated list of storage items', list)
+  .option('--directory [value]', 'Working directory in mesa')
+  .option('--files <list>', 'Comma-separated list of filenames, including paths', list)
   .option('-f, --force', 'Force')
   .parse(process.argv);
 
@@ -32,92 +41,198 @@ console.log(`Working directory: ${dir}`);
 console.log(`Store: ${config.uuid}.myshopify.com`);
 console.log('');
 
+// Read mesa.json
+let mesa;
+try {
+  mesa = fs.readFileSync(`${dir}/mesa.json`, 'utf8');
+  mesa = JSON.parse(mesa);
+}
+catch (e) {
+  //return console.log('Could not find mesa.json. Exiting.');
+}
+
 switch (cmd) {
 
   case 'push':
 
     files == [] ? ['mesa.json'] : files;
 
-    // Read mesa.json
-    let mesa;
-    try {
-      mesa = fs.readFileSync(`${dir}/mesa.json`, 'utf8');
-      mesa = JSON.parse(mesa);
-    }
-    catch (e) {
-      //return console.log('Could not find mesa.json. Exiting.');
-    }
-
     files.forEach(function(filename) {
 
       const filepath = `${dir}/${filename}`;
-      const extension = path.extname(filename);
-
-      if (extension === '.md' || extension === '.js') {
-
-        // Handle appending a path from mesa.json directories param
-        let mesaFilename = filename;
-        if (!mesa || !mesa.directories || !mesa.directories.lib) {
-          console.log(`Uploading ${filename}...`);
-        }
-        else {
-          mesaFilename = `${mesa.directories.lib}/${filename}`;
-          console.log(`Uploading ${filename} as ${mesaFilename}...`);
-        }
-
-        const contents = fs.readFileSync(filepath, 'utf8');
-        request('POST', 'scripts.json', {
-          script: {
-            filename: mesaFilename,
-            code: contents
-          }
-        });
-      }
-      else if (filename === 'mesa.json') {
-        if (!mesa.config) {
-          return console.log('Mesa.json did not contain any config elements. Skipping.');
-        }
-        console.log('Importing configuration from mesa.json...');
-        const force = program.force ? '?force=1': '';
-        request('POST', `packages/import.json${force}`, mesa);
-      }
-      else {
-        console.log(`Skipping ${filename}`);
-      }
+      upload(filepath);
 
     });
     break;
 
 
-  // case 'watch':
-  //
-  //   // var windows = process.platform === 'win32'
-  //   // var pathVarName = (windows && !('PATH' in process.env)) ? 'Path' : 'PATH'
-  //   //
-  //   // process.env[pathVarName] += path.delimiter + path.join(__dirname, 'node_modules', '.bin');
-  //   // cmd = system(`npm-watch `)
-  //
-  //
-  //   // var watchPackage = require('./watch-package')
-  //   // var watcher = watchPackage(process.argv[3] || process.cwd(), process.exit, process.argv[2])
-  //   //
-  //
-  //   var windows = process.platform === 'win32'
-  //   var pathVarName = (windows && !('PATH' in process.env)) ? 'Path' : 'PATH'
-  //
-  //   process.env[pathVarName] += path.delimiter + path.join(__dirname, 'node_modules', '.bin')
-  //
-  //   var watchPackage = require('./watch-package')
-  //   var watcher = watchPackage(process.argv[3] || process.cwd(), process.exit, process.argv[2])
-  //
-  //   process.stdin.pipe(watcher)
-  //   watcher.stdout.pipe(process.stdout)
-  //   watcher.stderr
+  case 'watch':
+
+    var watch = require('watch');
+
+    watch.watchTree(dir, {
+      filter: function (filename) {
+        // Exclude node_modules, only look for .js and .md files
+        return filename.indexOf(/node_modules|.git/) === -1;
+      },
+    }, function (filepath, curr, prev) {
+
+      // Ignore the initial index of all files
+      if (typeof filepath === 'object') {
+        return;
+      }
+      console.log(filepath);
+      if (filepath.indexOf('.js')) {
+        upload(filepath);
+      }
+    })
+    break;
+
+
+  case 'initialize':
+
+    // Get mesa.json
+    request('POST', 'packages/export.json', {
+      "inputs": program.inputs,
+      "outputs": program.outputs,
+      "secrets": program.secrets,
+      "storage": program.storage,
+      "files": program.files
+    }, function(response) {
+
+      mesa = require('./mesaModel');
+      if (response.data.config) {
+        mesa.config = response.data.config;
+        mesa.files = program.files && program.files.length ? program.files : undefined;
+        if (program.directory) {
+          mesa.directories = {
+            lib: program.directory
+          }
+        }
+
+        const strMesa = JSON.stringify(mesa, null, 2);
+        console.log('Writing configuration to mesa.json:');
+        console.log(strMesa);
+        fs.writeFileSync('mesa.json', strMesa);
+      }
+
+      if (program.files && program.files.length) {
+        download(program.files);
+      }
+
+
+    });
+
+    // console.log(mesa);
+
+    // @todo: change to mesa.files
+    //
+
+    break;
+
+  case 'pull':
+
+    download(files);
+    break;
+
+
+
+}
+
+/**
+ * Upload a file via the Mesa Script API.
+ *
+ * @param {string} filepath
+ */
+function upload(filepath) {
+
+  const filename = path.parse(filepath).base;
+  const extension = path.extname(filename);
+
+  if (extension === '.md' || extension === '.js') {
+
+    // Handle appending a path from mesa.json directories param
+    let mesaFilename = filename;
+    if (!mesa || !mesa.directories || !mesa.directories.lib) {
+      console.log(`Uploading ${filename}...`);
+    }
+    else {
+      mesaFilename = `${mesa.directories.lib}/${filename}`;
+      console.log(`Uploading ${filename} as ${mesaFilename}...`);
+    }
+
+    const contents = fs.readFileSync(filepath, 'utf8');
+    request('POST', 'scripts.json', {
+      script: {
+        filename: mesaFilename,
+        code: contents
+      }
+    });
+  }
+  else if (filename === 'mesa.json') {
+    if (!mesa.config) {
+      return console.log('Mesa.json did not contain any config elements. Skipping.');
+    }
+    console.log('Importing configuration from mesa.json...');
+    const force = program.force ? '?force=1': '';
+    request('POST', `packages/import.json${force}`, mesa);
+  }
+  else {
+    console.log(`Skipping ${filename}`);
+  }
 
 }
 
 
-async function request(method, endpoint, data){
+/**
+ * Download and save files via the Mesa Scripts API.
+ *
+ * @param {array} files
+ */
+function download(files) {
+  // Get all scripts
+  request('GET', 'scripts.json', {}, function(response) {
+
+    files.forEach(function(file) {
+      response.data.scripts.forEach(function(item) {
+        if (item.filename == file || item.filename.indexOf(new RegExp(file)) !== -1) {
+
+          filename = !mesa || !mesa.directories || !mesa.directories.lib ?
+            item.filename :
+            item.filename.replace(`${mesa.directories.lib}/`, '');
+
+          console.log(`Saving ${filename}...`);
+          fs.writeFileSync(filename, item.code);
+        }
+      });
+    });
+  });
+
+}
+
+/**
+ * Recursively create directories
+ *
+ * @param {string} filename
+ */
+function createDirectories(filename) {
+  const dir = path.dirname(filename);
+  if (dir && !fs.existsSync(dir)) {
+    console.log(`Creating directory: ${dir}...`);
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+
+/**
+ * Call the Mesa API.
+ *
+ * @param {string} method
+ * @param {string} endpoint
+ * @param {object} data
+ * @param {function} cb
+ */
+function request(method, endpoint, data, cb){
 
   // Let the api url be overwritten in config.yml
   apiUrl = config.api_url ? config.api_url : apiUrl;
@@ -126,22 +241,24 @@ async function request(method, endpoint, data){
     url: `${apiUrl}/${config.uuid}/${endpoint}`,
     method: method,
     headers: { 'x-api-key': config.key },
-    data: data,
     json: true,
   };
+  if (method !== 'GET' && data) {
+    options.data = data;
+  }
+  // console.log(options);
 
   axios(options)
     .then(function (response) {
-      if (endpoint.indexOf('packages') !== -1) {
-        console.log('Response: ', response.data);
+      if (cb) {
+        cb(response);
       }
-      else {
-        console.log('Success');
-      }
+      console.log('Success');
     })
     .catch(function (error) {
-      console.log(error);
-      console.log('ERROR', `${error.response.status}: ${error.response.statusText}`);
+      console.log(error.response.data);
+      // const msg = error.response && error.response.status ? `${error.response.status}: ${error.response.statusText}` : error;
+      // console.log('ERROR', msg);
     });
 
 

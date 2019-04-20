@@ -8,10 +8,41 @@ Uses https://www.npmjs.com/package/config-yml
 
 Example config.yml file:
 ```yaml
-uuid: poulet-sauvage
-key: J0lSB0PIuw145xhk610Ud6dLA7Ak9IpB7LnfUjaL
+uuid: mystoreuuid
+key: J0lSB0PIuw145xhk610Ud6dLA7A****B7LnfUjaL
 ```
 Optional parameter: `api_url`.
+
+## Usage
+
+Initialize a new project and create a new `mesa.json` file:
+```
+mesa initialize \
+    --inputs=in-cbyge-orders,in-cbyge-ftp \
+    --outputs=out-cbyge-orders-ftp,out-cbyge-orders-vo,out-cbyge-create-fulfillment \
+    --secrets=ftp-password \
+    --storage=discounts.json,skus.json \
+    --directory=cbyge \
+    --files=in-fulfillments.js,out-create-fulfillment.js,out-orders-ftp.js,out-virtual-output.js
+```
+
+Then use the utility functions to keep your local code in sync with Mesa:
+```
+mesa watch
+mesa push <...files>
+mesa pull <...files>
+```
+
+## Specifying environments
+
+1. Save configuration files in `./config`. For example: `./config/mystoreuuid.yml`
+2. Pass the environment with the `--env` or `-e` flags, or by setting the `ENV` envvar:
+```
+mesa watch --env mystoreuuid
+mesa watch -e mystoreuuid
+ENV=mystoreuuid mesa watch
+export ENV=mystoreuuid && mesa watch
+```
 
 ## Local development
 

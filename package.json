@@ -21,9 +21,12 @@
     }
   },
   "scripts": {
-    "upload": "./scripts/cli.js push *.js",
-    "watch": "npm-watch push",
-    "push": "./scripts/cli.js push"
+    "watch": "./scripts/cli.js watch",
+    "push": "./scripts/cli.js push",
+    "pull": "./scripts/cli.js pull",
+    "initialize": "./scripts/cli.js initialize",
+    "test2": "./scripts/test2.js",
+    "test": "./scripts/cli.js test"
   },
   "bin": {
     "mesa": "./scripts/cli.js"
@@ -32,6 +35,7 @@
     "axios": "^0.18.0",
     "commander": "^2.20.0",
     "config-yml": "^0.10.3",
-    "npm-watch": "^0.6.0"
+    "npm-watch": "^0.6.0",
+    "watch": "^1.0.2"
   }
 }
