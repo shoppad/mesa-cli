@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-var program = require('commander');
+const program = require('commander');
 const fs = require('fs');
 const path = require('path')
-var axios = require("axios");
+const axios = require("axios");
+const sh = require("shelljs");
 
 let apiUrl = 'https://api.getmesa.com/dev/admin';
 
@@ -29,14 +30,18 @@ let [cmd, ... files] = program.args;
 // Load config from config.yml
 let env = program.env ? program.env : null;
 env = process.env.ENV ? process.env.ENV : env;
+
 const config = require('config-yml').load(env);
 if (!config.key) {
-  const configFile = program.env ? program.env : 'config';
+  const configFile = env ? env : 'config';
   return console.log(`Could not find an appropriate ${configFile}.yml file. Exiting.`);
 }
 
+
 // Get the current dir
-const dir = process.env.INIT_CWD;
+const dir = sh.pwd().stdout;
+
+// const dir = process.env.INIT_CWD;
 console.log(`Working directory: ${dir}`);
 console.log(`Store: ${config.uuid}.myshopify.com`);
 console.log('');
