@@ -106,8 +106,10 @@ switch (cmd) {
     }, function(response, data) {
 
       mesa = require('./mesaModel');
-      if (response.config.data) {
-        mesa.config = JSON.parse(response.config.data);
+
+      if (response.config) {
+        mesa.config = response.config;
+
         mesa.files = program.files && program.files.length ? program.files : undefined;
         if (program.directory) {
           mesa.directories = {
@@ -207,7 +209,7 @@ function download(files) {
   // Get all scripts
   request('GET', 'scripts.json', {}, function(response) {
     files.forEach(function(file) {
-      response.data.scripts.forEach(function(item) {
+      response.scripts.forEach(function(item) {
 
         if (item.filename == file || item.filename.indexOf(file) !== -1) {
 
@@ -266,9 +268,8 @@ function request(method, endpoint, data, cb){
 
   axios(options)
     .then(function (response) {
-      console.log(response);
       if (cb) {
-        cb(response);
+        cb(response.data);
       }
       console.log('Success');
     })
