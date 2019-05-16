@@ -1,28 +1,54 @@
-"37595": 3.99,
-"17966": 4.79,
-"93679": 5.59,
-"82181": 5.99,
-"37638": 5.99,
-"37637": 6.39,
-"82195": 7.19,
-"37647": 7.99,
-"18673": 7.99,
-"18662": 7.99,
-"28234": 7.99,
-"20190": 7.99,
-"18712": 9.59,
-"28254": 9.59,
-"18846": 11.99,
-"44293": 15.99,
-"93096312": 15.99,
-"91672": 23.99,
-"91676": 23.99,
-"91671": 23.99,
-"28052": 23.99,
-"28072": 23.99,
-"26828": 35.99,
-"37486": 27.99,
-"27041": 35.99,
-"26793": 39.99,
-"27059": 55.99,
-"22518": 31.99
+# mesa-cli
+
+Command-line interface to download, watch and publish Mesa Scripts
+
+## Configuring sites
+
+Uses https://www.npmjs.com/package/config-yml
+
+Example config.yml file:
+```yaml
+uuid: mystoreuuid
+key: J0lSB0PIuw145xhk610Ud6dLA7A****B7LnfUjaL
+```
+Optional parameter: `api_url`.
+
+## Usage
+
+Initialize a new project and create a new `mesa.json` file:
+```
+mesa initialize -e ge-ff \
+    --inputs=in-cbyge-orders,in-cbyge-ftp \
+    --outputs=out-cbyge-orders-ftp,out-cbyge-orders-vo,out-cbyge-create-fulfillment \
+    --secrets=ftp-password \
+    --storage=discounts.json,skus.json \
+    --directory=cbyge \
+    --files=in-fulfillments.js,out-create-fulfillment.js,out-orders-ftp.js,out-virtual-output.js
+```
+
+Then use the utility functions to keep your local code in sync with Mesa:
+```
+mesa watch
+mesa push <...files>
+mesa pull <...files>
+```
+
+## Specifying environments
+
+1. Save configuration files in `./config`. For example: `./config/mystoreuuid.yml`
+2. Pass the environment with the `--env` or `-e` flags, or by setting the `ENV` envvar:
+```
+mesa watch --env mystoreuuid
+mesa watch -e mystoreuuid
+ENV=mystoreuuid mesa watch
+export ENV=mystoreuuid && mesa watch
+```
+
+## Local development
+
+https://medium.com/netscape/a-guide-to-create-a-nodejs-command-line-package-c2166ad0452e
+
+## @todos
+- Handle dependencies
+- Handle recursively uploading dirs
+- Hide source code for all files in vendor/
