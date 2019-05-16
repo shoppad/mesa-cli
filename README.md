@@ -43,6 +43,7 @@ mesa watch -e mystoreuuid
 ENV=mystoreuuid mesa watch
 export ENV=mystoreuuid && mesa watch
 ```
+[Full details on usage](https://www.npmjs.com/package/config-yml)
 
 ## Local development
 
