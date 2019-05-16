@@ -5,7 +5,7 @@ const path = require('path')
 const axios = require("axios");
 const sh = require("shelljs");
 
-let apiUrl = 'https://api.getmesa.com/dev/admin';
+let apiUrl = 'https://api.getmesa.com/v1/admin';
 
 
 // Get arguments and options
@@ -32,7 +32,7 @@ let env = program.env ? program.env : null;
 env = process.env.ENV ? process.env.ENV : env;
 
 const config = require('config-yml').load(env);
-if (!config.key) {
+if (!config.key && (['push', 'watch', 'pull', 'initialize'].indexOf(cmd)) !== -1) {
   const configFile = env ? env : 'config';
   return console.log(`Could not find an appropriate ${configFile}.yml file. Exiting.`);
 }
@@ -103,11 +103,11 @@ switch (cmd) {
       "secrets": program.secrets,
       "storage": program.storage,
       "files": program.files
-    }, function(response) {
+    }, function(response, data) {
 
       mesa = require('./mesaModel');
-      if (response.data.config) {
-        mesa.config = response.data.config;
+      if (response.config.data) {
+        mesa.config = JSON.parse(response.config.data);
         mesa.files = program.files && program.files.length ? program.files : undefined;
         if (program.directory) {
           mesa.directories = {
@@ -140,8 +140,17 @@ switch (cmd) {
     download(files);
     break;
 
-
-
+  default:
+    console.log('mesa push [params] <files>');
+    console.log('mesa pull [params] <files>');
+    console.log('mesa watch');
+    console.log('mesa initialize --inputs [csv] --outputs [csv] --secrets [csv] --storage [csv] --files [csv]');
+    console.log('');
+    console.log('Optional Parameters:');
+    console.log('  -e, --env [value] : Environment to use (filename in `./config/`)');
+    console.log('  --directory [value] : Working directory in mesa');
+    console.log('  -f, --force : Force');
+    console.log('');
 }
 
 /**
@@ -197,14 +206,16 @@ function upload(filepath) {
 function download(files) {
   // Get all scripts
   request('GET', 'scripts.json', {}, function(response) {
-
     files.forEach(function(file) {
       response.data.scripts.forEach(function(item) {
-        if (item.filename == file || item.filename.indexOf(new RegExp(file)) !== -1) {
+
+        if (item.filename == file || item.filename.indexOf(file) !== -1) {
 
           filename = !mesa || !mesa.directories || !mesa.directories.lib ?
             item.filename :
             item.filename.replace(`${mesa.directories.lib}/`, '');
+
+          createDirectories(filename);
 
           console.log(`Saving ${filename}...`);
           fs.writeFileSync(filename, item.code);
@@ -251,19 +262,21 @@ function request(method, endpoint, data, cb){
   if (method !== 'GET' && data) {
     options.data = data;
   }
-  // console.log(options);
+  console.log('options', options);
 
   axios(options)
     .then(function (response) {
+      console.log(response);
       if (cb) {
         cb(response);
       }
       console.log('Success');
     })
     .catch(function (error) {
-      console.log(error.response.data);
+      //console.log(error.response.data);
+      const msg = error.response && error.response.data ? error.response.data : error;
       // const msg = error.response && error.response.status ? `${error.response.status}: ${error.response.statusText}` : error;
-      // console.log('ERROR', msg);
+      console.log('ERROR', msg);
     });
 
 
