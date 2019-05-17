@@ -128,12 +128,6 @@ switch (cmd) {
 
 
     });
-
-    // console.log(mesa);
-
-    // @todo: change to mesa.files
-    //
-
     break;
 
   case 'pull':
@@ -141,10 +135,70 @@ switch (cmd) {
     download(files);
     break;
 
+  case 'initialize':
+
+    // Get mesa.json
+    request('POST', 'packages/export.json', {
+      "inputs": program.inputs,
+      "outputs": program.outputs,
+      "secrets": program.secrets,
+      "storage": program.storage,
+      "files": program.files
+    }, function(response, data) {
+
+      mesa = require('./mesaModel');
+
+      if (response.config) {
+        mesa.config = response.config;
+
+        mesa.files = program.files && program.files.length ? program.files : undefined;
+        // if (program.directory) {
+        //   mesa.directories = {
+        //     lib: program.directory
+        //   }
+        // }
+
+        const strMesa = JSON.stringify(mesa, null, 2);
+        console.log('Writing configuration to mesa.json:');
+        console.log(strMesa);
+        fs.writeFileSync('mesa.json', strMesa);
+      }
+
+      if (program.files && program.files.length) {
+        download(program.files);
+      }
+
+
+    });
+    break;
+
+  case 'replay':
+    // In this instance, `files` is the task id
+    if (files == []) {
+      return console.log('ERROR', 'No Task ID specified')
+    }
+
+    files.forEach(function(taskId) {
+      request('POST', `task/${taskId}/replay.json`);
+    });
+    break;
+
+  case 'logs':
+    const response = request('GET', `logs.json`, {}, function(data) {
+      data.logs.forEach(item => {
+        const date = new Date(item['@timestamp']);
+        const dateString = date.toLocaleDateString("en-US") + ' ' + date.toLocaleTimeString("en-US");
+        console.log(`[${dateString}] [${item.trigger.name}] [${item.trigger._id}] ${item.message}`);
+      });
+    });
+    break;
+
   default:
     console.log('mesa push [params] <files>');
     console.log('mesa pull [params] <files>');
     console.log('mesa watch');
+    console.log('mesa replay <task_id>');
+    console.log('mesa logs');
     console.log('mesa initialize --inputs [csv] --outputs [csv] --secrets [csv] --storage [csv] --files [csv]');
     console.log('');
     console.log('Optional Parameters:');
@@ -268,13 +322,13 @@ function request(method, endpoint, data, cb){
       if (cb) {
         cb(response.data);
       }
-      console.log('Success');
+      console.log(`Success: ${options.method} ${options.url}`);
     })
     .catch(function (error) {
       //console.log(error.response.data);
       const msg = error.response && error.response.data ? error.response.data : error;
       // const msg = error.response && error.response.status ? `${error.response.status}: ${error.response.statusText}` : error;
-      console.log('ERROR', msg);
+      console.log('ERROR', options, msg);
     });
 
 

@@ -24,7 +24,9 @@
     "watch": "./scripts/cli.js watch",
     "push": "./scripts/cli.js push",
     "pull": "./scripts/cli.js pull",
-    "initialize": "./scripts/cli.js initialize"
+    "initialize": "./scripts/cli.js initialize",
+    "replay": "./scripts/cli.js replay",
+    "logs": "./scripts/cli.js logs"
   },
   "bin": {
     "mesa": "./scripts/cli.js"
