@@ -17,13 +17,12 @@ Optional parameter: `api_url`.
 
 Initialize a new project and create a new `mesa.json` file:
 ```
-mesa initialize -e ge-ff \
-    --inputs=in-cbyge-orders,in-cbyge-ftp \
-    --outputs=out-cbyge-orders-ftp,out-cbyge-orders-vo,out-cbyge-create-fulfillment \
-    --secrets=ftp-password \
-    --storage=discounts.json,skus.json \
-    --directory=cbyge \
-    --files=in-fulfillments.js,out-create-fulfillment.js,out-orders-ftp.js,out-virtual-output.js
+mesa initialize \
+    --inputs=in-kitchen-sink \
+    --outputs=out-kitchen-sink-vo \
+    --secrets=ftp-password,api-key \
+    --storage=kitchen-sink-default.json,test \
+    --files=in-kitchen-sink.js
 ```
 
 Then use the utility functions to keep your local code in sync with Mesa:
@@ -53,3 +52,4 @@ https://medium.com/netscape/a-guide-to-create-a-nodejs-command-line-package-c216
 - Handle dependencies
 - Handle recursively uploading dirs
 - Hide source code for all files in vendor/
+

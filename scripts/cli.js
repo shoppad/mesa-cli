@@ -20,7 +20,6 @@ program
   .option('-o, --outputs <list>', 'Comma-separated list of outputs', list)
   .option('-s, --secrets <list>', 'Comma-separated list of secrets', list)
   .option('--storage <list>', 'Comma-separated list of storage items', list)
-  .option('--directory [value]', 'Working directory in mesa')
   .option('--files <list>', 'Comma-separated list of filenames, including paths', list)
   .option('-f, --force', 'Force')
   .parse(process.argv);
@@ -111,11 +110,11 @@ switch (cmd) {
         mesa.config = response.config;
 
         mesa.files = program.files && program.files.length ? program.files : undefined;
-        if (program.directory) {
-          mesa.directories = {
-            lib: program.directory
-          }
-        }
+        // if (program.directory) {
+        //   mesa.directories = {
+        //     lib: program.directory
+        //   }
+        // }
 
         const strMesa = JSON.stringify(mesa, null, 2);
         console.log('Writing configuration to mesa.json:');
@@ -150,7 +149,6 @@ switch (cmd) {
     console.log('');
     console.log('Optional Parameters:');
     console.log('  -e, --env [value] : Environment to use (filename in `./config/`)');
-    console.log('  --directory [value] : Working directory in mesa');
     console.log('  -f, --force : Force');
     console.log('');
 }
@@ -264,7 +262,6 @@ function request(method, endpoint, data, cb){
   if (method !== 'GET' && data) {
     options.data = data;
   }
-  console.log('options', options);
 
   axios(options)
     .then(function (response) {
