@@ -172,10 +172,23 @@ switch (cmd) {
     });
     break;
 
+  case 'install':
+    // In this instance, `files` is the package name
+    if (files == []) {
+      return console.log('ERROR', 'No package specified');
+    }
+
+    files.forEach(function(package) {
+      request('POST', `packages/install.json`, {
+        package: package
+      });
+    });
+    break;
+
   case 'replay':
     // In this instance, `files` is the task id
     if (files == []) {
-      return console.log('ERROR', 'No Task ID specified')
+      return console.log('ERROR', 'No Task ID specified');
     }
 
     files.forEach(function(taskId) {
@@ -197,6 +210,7 @@ switch (cmd) {
     console.log('mesa push [params] <files>');
     console.log('mesa pull [params] <files>');
     console.log('mesa watch');
+    console.log('mesa install <package> [version]');
     console.log('mesa replay <task_id>');
     console.log('mesa logs');
     console.log('mesa initialize --inputs [csv] --outputs [csv] --secrets [csv] --storage [csv] --files [csv]');
