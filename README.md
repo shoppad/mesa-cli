@@ -4,25 +4,24 @@ Command-line interface to download, watch and publish Mesa Scripts
 
 ## Configuring sites
 
-Uses https://www.npmjs.com/package/config-yml
-
-Example config.yml file:
+Create a new directory with a config.yml file:
 ```yaml
 uuid: mystoreuuid
 key: J0lSB0PIuw145xhk610Ud6dLA7A****B7LnfUjaL
 ```
-Optional parameter: `api_url`.
+- Key is your site's Mesa Key from the Mesa Dashboard
+- Optional parameter: `api_url`.
 
 ## Usage
 
-Initialize a new project and create a new `mesa.json` file:
+Download the scripts and configuration from a shop into the current directory:
 ```
-mesa initialize \
-    --inputs=in-kitchen-sink \
-    --outputs=out-kitchen-sink-vo \
-    --secrets=ftp-password,api-key \
-    --storage=kitchen-sink-default.json,test \
-    --files=in-kitchen-sink.js
+mesa initialize -e poulet-sauvage \
+    --inputs=in-tracktor-alerts \
+    --outputs=out-tracktor-email,out-tracktor-twilio \
+    --files=tracktor/in-tracktor-alerts.js,tracktor/out-tracktor-email.js,tracktor/out-tracktor-twilio.js \
+    --storage=tracktor-sms-in-transit.liquid,tracktor-email-in-transit.liquid,tracktor-email-subject-in-transit \
+    --secrets=tracktor-twilio-token,tracktor-twilio-phone-number,tracktor-twilio-sid
 ```
 
 Then use the utility functions to keep your local code in sync with Mesa:
