@@ -193,8 +193,11 @@ switch (cmd) {
     }
 
     files.forEach(function(package) {
-      request('POST', `packages/install.json`, {
+      const response = request('POST', `packages/install.json`, {
         package: package
+      }, function(data) {
+        console.log(`Installed ${package}. Log:`)
+        console.log(data.log);
       });
     });
     break;
