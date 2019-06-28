@@ -7,6 +7,9 @@ const sh = require("shelljs");
 
 let apiUrl = 'https://api.getmesa.com/v1/admin';
 
+// Get the current dir
+const dir = sh.pwd().stdout;
+
 
 // Get arguments and options
 function list(val) {
@@ -29,16 +32,26 @@ let [cmd, ... files] = program.args;
 // Load config from config.yml
 let env = program.env ? program.env : null;
 env = process.env.ENV ? process.env.ENV : env;
-
-const config = require('config-yml').load(env);
-if (!config.key && (['push', 'watch', 'pull', 'initialize'].indexOf(cmd)) !== -1) {
-  const configFile = env ? env : 'config';
-  return console.log(`Could not find an appropriate ${configFile}.yml file. Exiting.`);
+let config;
+try {
+  config = require('config-yml').load(env);
+  console.log('Loaded shop config from local config')
 }
-
-
-// Get the current dir
-const dir = sh.pwd().stdout;
+catch (e) {
+  try {
+    process.chdir(`${process.env.HOME}/.mesa`);
+    config = require('config-yml').load(env);
+    process.chdir(dir);
+    console.log('Loaded shop config from global config in ~/.mesa')
+  } catch (e) {
+    console.log(e);
+    const configFile = env ? env : 'config';
+    return console.log(`Could not find an appropriate ${configFile}.yml file. Exiting.`);
+  }
+}
+if (!config.uuid) {
+  return console.log('UUID not specified in config.yml. Exiting.');
+}
 
 // const dir = process.env.INIT_CWD;
 console.log(`Working directory: ${dir}`);
@@ -64,6 +77,7 @@ switch (cmd) {
     files.forEach(function(filename) {
 
       const filepath = `${dir}/${filename}`;
+      console.log(filepath);
       upload(filepath);
 
     });
@@ -93,42 +107,42 @@ switch (cmd) {
     break;
 
 
-  case 'initialize':
-
-    // Get mesa.json
-    request('POST', 'packages/export.json', {
-      "inputs": program.inputs,
-      "outputs": program.outputs,
-      "secrets": program.secrets,
-      "storage": program.storage,
-      "files": program.files
-    }, function(response, data) {
-
-      mesa = require('./mesaModel');
-
-      if (response.config) {
-        mesa.config = response.config;
-
-        mesa.files = program.files && program.files.length ? program.files : undefined;
-        // if (program.directory) {
-        //   mesa.directories = {
-        //     lib: program.directory
-        //   }
-        // }
-
-        const strMesa = JSON.stringify(mesa, null, 2);
-        console.log('Writing configuration to mesa.json:');
-        console.log(strMesa);
-        fs.writeFileSync('mesa.json', strMesa);
-      }
-
-      if (program.files && program.files.length) {
-        download(program.files);
-      }
-
-
-    });
-    break;
+  // case 'initialize':
+  //
+  //   // Get mesa.json
+  //   request('POST', 'packages/export.json', {
+  //     "inputs": program.inputs,
+  //     "outputs": program.outputs,
+  //     "secrets": program.secrets,
+  //     "storage": program.storage,
+  //     "files": program.files
+  //   }, function(response, data) {
+  //
+  //     mesa = require('./mesaModel');
+  //
+  //     if (response.config) {
+  //       mesa.config = response.config;
+  //
+  //       mesa.files = program.files && program.files.length ? program.files : undefined;
+  //       // if (program.directory) {
+  //       //   mesa.directories = {
+  //       //     lib: program.directory
+  //       //   }
+  //       // }
+  //
+  //       const strMesa = JSON.stringify(mesa, null, 2);
+  //       console.log('Writing configuration to mesa.json:');
+  //       console.log(strMesa);
+  //       fs.writeFileSync('mesa.json', strMesa);
+  //     }
+  //
+  //     if (program.files && program.files.length) {
+  //       download(program.files);
+  //     }
+  //
+  //
+  //   });
+  //   break;
 
   case 'pull':
 
@@ -213,7 +227,7 @@ switch (cmd) {
     console.log('mesa install <package> [version]');
     console.log('mesa replay <task_id>');
     console.log('mesa logs');
-    console.log('mesa initialize --inputs [csv] --outputs [csv] --secrets [csv] --storage [csv] --files [csv]');
+    console.log('mesa initialize --inputs=[csv] --outputs=[csv] --secrets=[csv] --storage=[csv] --files=[csv]');
     console.log('');
     console.log('Optional Parameters:');
     console.log('  -e, --env [value] : Environment to use (filename in `./config/`)');
@@ -221,43 +235,34 @@ switch (cmd) {
     console.log('');
 }
 
-/**
- * Upload a file via the Mesa Script API.
+/**Skipping
  *
  * @param {string} filepath
  */
 function upload(filepath) {
 
-  const filename = path.parse(filepath).base;
+  const filename = filepath.replace(`${dir}/`, '');
   const extension = path.extname(filename);
+  const contents = fs.readFileSync(filepath, 'utf8');
 
-  if (extension === '.md' || extension === '.js') {
+  // @todo: do we want to allow uploading of .md files? if (extension === '.md' || extension === '.js') {
+  if (extension === '.js') {
+    console.log(`Uploading ${filename} as ${filename}...`);
 
-    // Handle appending a path from mesa.json directories param
-    let mesaFilename = filename;
-    if (!mesa || !mesa.directories || !mesa.directories.lib) {
-      console.log(`Uploading ${filename}...`);
-    }
-    else {
-      mesaFilename = `${mesa.directories.lib}/${filename}`;
-      console.log(`Uploading ${filename} as ${mesaFilename}...`);
-    }
-
-    const contents = fs.readFileSync(filepath, 'utf8');
     request('POST', 'scripts.json', {
       script: {
-        filename: mesaFilename,
+        filename: filename,
         code: contents
       }
     });
   }
   else if (filename === 'mesa.json') {
-    if (!mesa.config) {
+    if (!contents.config) {
       return console.log('Mesa.json did not contain any config elements. Skipping.');
     }
     console.log('Importing configuration from mesa.json...');
     const force = program.force ? '?force=1': '';
-    request('POST', `packages/import.json${force}`, mesa);
+    request('POST', `packages/import.json${force}`, contents);
   }
   else {
     console.log(`Skipping ${filename}`);
