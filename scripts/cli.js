@@ -25,6 +25,9 @@ program
   .option('--storage <list>', 'Comma-separated list of storage items', list)
   .option('--files <list>', 'Comma-separated list of filenames, including paths', list)
   .option('-f, --force', 'Force')
+  .option('-v, --verbose', 'Verbose')
+  .option('-n, --number [value]', 'Number')
+  .option('-p, --payload [value]', 'Payload')
   .parse(process.argv);
 
 let [cmd, ... files] = program.args;
@@ -35,21 +38,21 @@ env = process.env.ENV ? process.env.ENV : env;
 let config;
 try {
   config = require('config-yml').load(env);
-  console.log('Loaded shop config from local config')
+  console.log('Loaded shop config from: Local config')
 }
 catch (e) {
   try {
     process.chdir(`${process.env.HOME}/.mesa`);
     config = require('config-yml').load(env);
     process.chdir(dir);
-    console.log('Loaded shop config from global config in ~/.mesa')
+    console.log('Loaded shop config from: Global config in ~/.mesa')
   } catch (e) {
     console.log(e);
     const configFile = env ? env : 'config';
     return console.log(`Could not find an appropriate ${configFile}.yml file. Exiting.`);
   }
 }
-if (!config.uuid) {
+if (!config.uuid && cmd) {
   return console.log('UUID not specified in config.yml. Exiting.');
 }
 
@@ -106,44 +109,6 @@ switch (cmd) {
     })
     break;
 
-
-  // case 'initialize':
-  //
-  //   // Get mesa.json
-  //   request('POST', 'packages/export.json', {
-  //     "inputs": program.inputs,
-  //     "outputs": program.outputs,
-  //     "secrets": program.secrets,
-  //     "storage": program.storage,
-  //     "files": program.files
-  //   }, function(response, data) {
-  //
-  //     mesa = require('./mesaModel');
-  //
-  //     if (response.config) {
-  //       mesa.config = response.config;
-  //
-  //       mesa.files = program.files && program.files.length ? program.files : undefined;
-  //       // if (program.directory) {
-  //       //   mesa.directories = {
-  //       //     lib: program.directory
-  //       //   }
-  //       // }
-  //
-  //       const strMesa = JSON.stringify(mesa, null, 2);
-  //       console.log('Writing configuration to mesa.json:');
-  //       console.log(strMesa);
-  //       fs.writeFileSync('mesa.json', strMesa);
-  //     }
-  //
-  //     if (program.files && program.files.length) {
-  //       download(program.files);
-  //     }
-  //
-  //
-  //   });
-  //   break;
-
   case 'pull':
 
     download(files);
@@ -194,8 +159,9 @@ switch (cmd) {
 
     files.forEach(function(package) {
       const response = request('POST', `packages/install.json`, {
-        package: package
-      }, function(data) {
+        package: package,
+        force: program.force ? 1 : 0,
+    }, function(data) {
         console.log(`Installed ${package}. Log:`)
         console.log(data.log);
       });
@@ -213,12 +179,51 @@ switch (cmd) {
     });
     break;
 
+  case 'test':
+    // In this instance, `files` is the task id
+    if (files == []) {
+      return console.log('ERROR', 'No Input or Output key specified');
+    }
+
+    files.forEach(function(triggerKey) {
+      request('POST', `test.json`, {
+        key: triggerKey,
+        payload: program.payload,
+      }, function(data) {
+        if (data.task.id) {
+          console.log('Test successfully enqueued:')
+          console.log(`https://${config.uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/queue/task/${data.task.id}`);
+          console.log('');
+        }
+      });
+    });
+    break;
+
   case 'logs':
     const response = request('GET', `logs.json`, {}, function(data) {
+
+      // Truncate the array if necessary
+      console.log(program);
+      if (program.number) {
+        data.logs = data.logs.slice(Math.max(data.logs.length - parseInt(program.number)));
+      }
+
       data.logs.forEach(item => {
+
         const date = new Date(item['@timestamp']);
         const dateString = date.toLocaleDateString("en-US") + ' ' + date.toLocaleTimeString("en-US");
         console.log(`[${dateString}] [${item.trigger.name}] [${item.trigger._id}] ${item.message}`);
+
+        // Print details
+        if (program.verbose && item.fields && item.fields.meta) {
+          try {
+            console.log(JSON.parse(item.fields.meta));
+          }
+          catch (e) {
+            console.log(item.fields.meta);
+          }
+        }
+
       });
     });
     break;
@@ -229,12 +234,14 @@ switch (cmd) {
     console.log('mesa watch');
     console.log('mesa install <package> [version]');
     console.log('mesa replay <task_id>');
-    console.log('mesa logs');
+    console.log('mesa logs [-v] [-n 50]');
     console.log('mesa initialize --inputs=[csv] --outputs=[csv] --secrets=[csv] --storage=[csv] --files=[csv]');
     console.log('');
     console.log('Optional Parameters:');
     console.log('  -e, --env [value] : Environment to use (filename in `./config/`)');
     console.log('  -f, --force : Force');
+    console.log('  -n, --number : Number');
+    console.log('  -v, --verbose : Verbose: Show log metadata');
     console.log('');
 }
 
@@ -246,7 +253,7 @@ function upload(filepath) {
 
   const filename = filepath.replace(`${dir}/`, '');
   const extension = path.extname(filename);
-  const contents = fs.readFileSync(filepath, 'utf8');
+  let contents = fs.readFileSync(filepath, 'utf8');
 
   // @todo: do we want to allow uploading of .md files? if (extension === '.md' || extension === '.js') {
   if (extension === '.js') {
@@ -259,13 +266,17 @@ function upload(filepath) {
       }
     });
   }
-  else if (filename === 'mesa.json') {
+  else if (filename.indexOf('mesa.json') !== -1) {
+    contents = JSON.parse(contents);
     if (!contents.config) {
       return console.log('Mesa.json did not contain any config elements. Skipping.');
     }
     console.log('Importing configuration from mesa.json...');
     const force = program.force ? '?force=1': '';
-    request('POST', `packages/import.json${force}`, contents);
+    request('POST', `packages/import.json${force}`, contents, function (data) {
+      console.log('Log from mesa.json import:');
+      console.log(data.log);
+    });
   }
   else {
     console.log(`Skipping ${filename}`);
