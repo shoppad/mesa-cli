@@ -117,7 +117,7 @@ switch (cmd) {
   case 'initialize':
 
     // Get mesa.json
-    request('POST', 'packages/export.json', {
+    request('POST', 'templates/export.json', {
       "inputs": program.inputs,
       "outputs": program.outputs,
       "secrets": program.secrets,
@@ -158,7 +158,7 @@ switch (cmd) {
     }
 
     files.forEach(function(package) {
-      const response = request('POST', `packages/install.json`, {
+      const response = request('POST', `templates/install.json`, {
         package: package,
         force: program.force ? 1 : 0,
     }, function(data) {
@@ -273,7 +273,7 @@ function upload(filepath) {
     }
     console.log('Importing configuration from mesa.json...');
     const force = program.force ? '?force=1': '';
-    request('POST', `packages/import.json${force}`, contents, function (data) {
+    request('POST', `templates/import.json${force}`, contents, function (data) {
       console.log('Log from mesa.json import:');
       console.log(data.log);
     });
