@@ -19,11 +19,7 @@ program
   .version('0.1.0')
   .usage('[options] <file ...>')
   .option('-e, --env [value]', 'Environment to use (filename in `./config/`)')
-  .option('-i, --inputs <list>', 'Comma-separated list of inputs', list)
-  .option('-o, --outputs <list>', 'Comma-separated list of outputs', list)
-  .option('-s, --secrets <list>', 'Comma-separated list of secrets', list)
-  .option('--storage <list>', 'Comma-separated list of storage items', list)
-  .option('--files <list>', 'Comma-separated list of filenames, including paths', list)
+  .option('-a, --automation [value]', 'Automation key')
   .option('-f, --force', 'Force')
   .option('-v, --verbose', 'Verbose')
   .option('-n, --number [value]', 'Number')
@@ -76,14 +72,40 @@ switch (cmd) {
   case 'push':
 
     files == [] ? ['mesa.json'] : files;
+    let mesa = null;
 
     files.forEach(function(filename) {
-
       const filepath = `${dir}/${filename}`;
-      console.log(filepath);
-      upload(filepath);
-
+      if (filename.indexOf('mesa.json') !== -1) {
+        mesa = filename;
+      }
     });
+
+    // If we're uploading mesa.json, we need to be a little smart about the order to set the scripts properly
+    if (mesa) {
+      upload(mesa, function(data) {
+        files.forEach(function(filename) {
+          const filepath = `${dir}/${filename}`;
+          if (filename.indexOf('mesa.json') === -1) {
+            upload(filepath);
+          }
+        });
+        setTimeout(function() {
+          upload(mesa);
+        }, 2000);
+
+      });
+    }
+    // Just upload the files
+    else {
+      files.forEach(function(filename) {
+        const filepath = `${dir}/${filename}`;
+        if (filename.indexOf('mesa.json') === -1) {
+          upload(filepath);
+        }
+      });
+    }
+
     break;
 
 
@@ -114,9 +136,10 @@ switch (cmd) {
     download(files);
     break;
 
-  case 'initialize':
+  case 'export':
 
     // Get mesa.json
+<<<<<<< HEAD
     request('POST', 'templates/export.json', {
       "inputs": program.inputs,
       "outputs": program.outputs,
@@ -124,29 +147,23 @@ switch (cmd) {
       "storage": program.storage,
       "files": program.files
     }, function(response, data) {
+=======
+    // {{url}}/admin/{{uuid}}/automations/{{automation_key}}.json
+    request('GET', `automations/${program.automation}.json`, {}, function(response, data) {
+>>>>>>> Mesa cli updates for automations
 
       mesa = require('./mesaModel');
 
       if (response.config) {
-        mesa.config = response.config;
 
-        mesa.files = program.files && program.files.length ? program.files : undefined;
-        // if (program.directory) {
-        //   mesa.directories = {
-        //     lib: program.directory
-        //   }
-        // }
-
-        const strMesa = JSON.stringify(mesa, null, 2);
-        console.log('Writing configuration to mesa.json:');
-        console.log(strMesa);
+        const strMesa = JSON.stringify(response, null, 2);
+        console.log('Writing configuration to mesa.json');
+        // console.log(strMesa);
         fs.writeFileSync('mesa.json', strMesa);
-      }
 
-      if (program.files && program.files.length) {
-        download(program.files);
+        // Download and save scripts
+        download('all', program.automation);
       }
-
 
     });
     break;
@@ -185,11 +202,15 @@ switch (cmd) {
       return console.log('ERROR', 'No Input or Output key specified');
     }
 
+    if (!program.automation) {
+      return console.log('ERROR', 'No automation key specified');
+    }
+
     files.forEach(function(triggerKey) {
-      request('POST', `test.json`, {
-        key: triggerKey,
+      request('POST', `${program.automation}/triggers/${triggerKey}/test.json`, {
         payload: program.payload,
       }, function(data) {
+        console.log(data);
         if (data.task.id) {
           console.log('Test successfully enqueued:')
           console.log(`https://${config.uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/queue/task/${data.task.id}`);
@@ -229,19 +250,21 @@ switch (cmd) {
     break;
 
   default:
+    console.log('mesa export -a [automation_key]');
     console.log('mesa push [params] <files>');
     console.log('mesa pull [params] <files>');
     console.log('mesa watch');
     console.log('mesa install <package> [version]');
+    console.log('mesa test -a [automation_key] [input_output_key]');
     console.log('mesa replay <task_id>');
     console.log('mesa logs [-v] [-n 50]');
-    console.log('mesa initialize --inputs=[csv] --outputs=[csv] --secrets=[csv] --storage=[csv] --files=[csv]');
     console.log('');
     console.log('Optional Parameters:');
-    console.log('  -e, --env [value] : Environment to use (filename in `./config/`)');
-    console.log('  -f, --force : Force');
-    console.log('  -n, --number : Number');
-    console.log('  -v, --verbose : Verbose: Show log metadata');
+    console.log('  -e, --env [value] : Environment to use (filename in `./config/`).');
+    console.log('  -a, --automation [value] : Automation key. Automatically determined by the mesa.json file if not specified.');
+    console.log('  -f, --force : Force, overwrite config for inputs/outputs/storage.');
+    console.log('  -n, --number [value] : Number.');
+    console.log('  -v, --verbose : Verbose: Show log metadata.');
     console.log('');
 }
 
@@ -249,17 +272,18 @@ switch (cmd) {
  *
  * @param {string} filepath
  */
-function upload(filepath) {
+function upload(filepath, cb) {
 
-  const filename = filepath.replace(`${dir}/`, '');
+  const filename = path.parse(filepath).base;
   const extension = path.extname(filename);
   let contents = fs.readFileSync(filepath, 'utf8');
 
   // @todo: do we want to allow uploading of .md files? if (extension === '.md' || extension === '.js') {
   if (extension === '.js') {
     console.log(`Uploading ${filename} as ${filename}...`);
+    const automation = getAutomationKey(filepath);
 
-    request('POST', 'scripts.json', {
+    request('POST', `${automation}/scripts.json`, {
       script: {
         filename: filename,
         code: contents
@@ -273,9 +297,26 @@ function upload(filepath) {
     }
     console.log('Importing configuration from mesa.json...');
     const force = program.force ? '?force=1': '';
+<<<<<<< HEAD
     request('POST', `templates/import.json${force}`, contents, function (data) {
       console.log('Log from mesa.json import:');
       console.log(data.log);
+=======
+    request('POST', `automations.json${force}`, contents, function (data) {
+      console.log('');
+      if (data.log) {
+        console.log(`Log from mesa.json import of automation ${contents.key}:`);
+        console.log(data.log);
+      }
+      else {
+        console.log('There was a problem importing the mesa.json file:');
+        console.log(data);
+      }
+      console.log('');
+      if (cb) {
+        cb(data);
+      }
+>>>>>>> Mesa cli updates for automations
     });
   }
   else {
@@ -284,30 +325,58 @@ function upload(filepath) {
 
 }
 
+function getAutomationKey(filepath) {
+
+  if (program.automation) {
+    return program.automation;
+  }
+
+  const dir = path.dirname(filepath);
+  let mesa = fs.readFileSync(`${dir}/mesa.json`, 'utf8');
+
+  if (!mesa) {
+    return console.log('Could not find mesa.json file.');
+  }
+
+  mesa = JSON.parse(mesa);
+  if (!mesa.key) {
+    return console.log('Could not find key attribute in mesa.json file.');
+  }
+
+  return mesa.key;
+}
+
 
 /**
  * Download and save files via the Mesa Scripts API.
  *
  * @param {array} files
  */
-function download(files) {
-  // Get all scripts
-  request('GET', 'scripts.json', {}, function(response) {
-    files.forEach(function(file) {
-      response.scripts.forEach(function(item) {
+function download(files, automation) {
 
-        if (item.filename == file || item.filename.indexOf(file) !== -1) {
+  if (!automation) {
+    automation = getAutomationKey(files[0]);
+  }
+  if (!automation) {
+    return console.log('Could not find determine automation.');
+  }
 
-          filename = !mesa || !mesa.directories || !mesa.directories.lib ?
-            item.filename :
-            item.filename.replace(`${mesa.directories.lib}/`, '');
+  request('GET', `${automation}/scripts.json`, {}, function(response, data) {
 
-          createDirectories(filename);
+    response.scripts.forEach(function(item) {
 
-          console.log(`Saving ${filename}...`);
-          fs.writeFileSync(filename, item.code);
-        }
-      });
+      if (files === 'all' || files.indexOf(item.filename) !== -1) {
+
+        // filename = !mesa || !mesa.directories || !mesa.directories.lib ?
+        //   item.filename :
+        //   item.filename.replace(`${mesa.directories.lib}/`, '');
+        const filename = item.filename
+
+        createDirectories(filename);
+
+        console.log(`Saving ${filename} from automation ${automation}`);
+        fs.writeFileSync(filename, item.code);
+      }
     });
   });
 
