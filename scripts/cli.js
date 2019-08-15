@@ -138,26 +138,10 @@ switch (cmd) {
 
   case 'export':
 
-<<<<<<< HEAD
-    // Get mesa.json
-<<<<<<< HEAD
-    request('POST', 'templates/export.json', {
-      "inputs": program.inputs,
-      "outputs": program.outputs,
-      "secrets": program.secrets,
-      "storage": program.storage,
-      "files": program.files
-    }, function(response, data) {
-=======
-    // {{url}}/admin/{{uuid}}/automations/{{automation_key}}.json
-    request('GET', `automations/${program.automation}.json`, {}, function(response, data) {
->>>>>>> Mesa cli updates for automations
-=======
     // In this instance, `files` is the template name
     if (files == []) {
       return console.log('ERROR', 'No template specified');
     }
->>>>>>> updates
 
     files.forEach(function(automation) {
       // Get mesa.json
@@ -191,7 +175,7 @@ switch (cmd) {
       const response = request('POST', `templates/install.json`, {
         template: template,
         force: program.force ? 1 : 0,
-    }, function(data) {
+      }, function(data) {
         console.log(`Installed ${template}. Log:`)
         console.log(data.log);
       });
@@ -310,11 +294,6 @@ function upload(filepath, cb) {
     }
     console.log('Importing configuration from mesa.json...');
     const force = program.force ? '?force=1': '';
-<<<<<<< HEAD
-    request('POST', `templates/import.json${force}`, contents, function (data) {
-      console.log('Log from mesa.json import:');
-      console.log(data.log);
-=======
     request('POST', `automations.json${force}`, contents, function (data) {
       console.log('');
       if (data.log) {
@@ -329,7 +308,6 @@ function upload(filepath, cb) {
       if (cb) {
         cb(data);
       }
->>>>>>> Mesa cli updates for automations
     });
   }
   else {
