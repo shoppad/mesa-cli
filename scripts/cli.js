@@ -138,38 +138,45 @@ switch (cmd) {
 
   case 'export':
 
-    // Get mesa.json
-    // {{url}}/admin/{{uuid}}/automations/{{automation_key}}.json
-    request('GET', `automations/${program.automation}.json`, {}, function(response, data) {
+    // In this instance, `files` is the template name
+    if (files == []) {
+      return console.log('ERROR', 'No template specified');
+    }
 
-      mesa = require('./mesaModel');
+    files.forEach(function(automation) {
+      // Get mesa.json
+      // {{url}}/admin/{{uuid}}/automations/{{automation_key}}.json
+      request('GET', `automations/${automation}.json`, {}, function(response, data) {
 
-      if (response.config) {
+        mesa = require('./mesaModel');
 
-        const strMesa = JSON.stringify(response, null, 2);
-        console.log('Writing configuration to mesa.json');
-        // console.log(strMesa);
-        fs.writeFileSync('mesa.json', strMesa);
+        if (response.config) {
 
-        // Download and save scripts
-        download('all', program.automation);
-      }
+          const strMesa = JSON.stringify(response, null, 2);
+          console.log('Writing configuration to mesa.json');
+          // console.log(strMesa);
+          fs.writeFileSync('mesa.json', strMesa);
 
+          // Download and save scripts
+          download('all', automation);
+        }
+
+      });
     });
     break;
 
   case 'install':
-    // In this instance, `files` is the package name
+    // In this instance, `files` is the template name
     if (files == []) {
-      return console.log('ERROR', 'No package specified');
+      return console.log('ERROR', 'No template specified');
     }
 
-    files.forEach(function(package) {
+    files.forEach(function(template) {
       const response = request('POST', `templates/install.json`, {
-        package: package,
+        template: template,
         force: program.force ? 1 : 0,
     }, function(data) {
-        console.log(`Installed ${package}. Log:`)
+        console.log(`Installed ${template}. Log:`)
         console.log(data.log);
       });
     });
@@ -188,25 +195,25 @@ switch (cmd) {
 
   case 'test':
     // In this instance, `files` is the task id
-    if (files == []) {
-      return console.log('ERROR', 'No Input or Output key specified');
-    }
-
-    if (!program.automation) {
+    if (!files[0]) {
       return console.log('ERROR', 'No automation key specified');
     }
 
-    files.forEach(function(triggerKey) {
-      request('POST', `${program.automation}/triggers/${triggerKey}/test.json`, {
-        payload: program.payload,
-      }, function(data) {
-        console.log(data);
-        if (data.task.id) {
-          console.log('Test successfully enqueued:')
-          console.log(`https://${config.uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/queue/task/${data.task.id}`);
-          console.log('');
-        }
-      });
+    if (!files[1]) {
+      return console.log('ERROR', 'No Input or Output key specified');
+    }
+
+    const automationKey = files[0];
+    const triggerKey = files[1];
+    request('POST', `${automationKey}/triggers/${triggerKey}/test.json`, {
+      payload: program.payload,
+    }, function(data) {
+      console.log(data);
+      if (data.task.id) {
+        console.log('Test successfully enqueued:')
+        console.log(`https://${config.uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/queue/task/${data.task.id}`);
+        console.log('');
+      }
     });
     break;
 
@@ -240,12 +247,12 @@ switch (cmd) {
     break;
 
   default:
-    console.log('mesa export -a [automation_key]');
+    console.log('mesa export <automation_key>');
     console.log('mesa push [params] <files>');
     console.log('mesa pull [params] <files>');
     console.log('mesa watch');
-    console.log('mesa install <package> [version]');
-    console.log('mesa test -a [automation_key] [input_output_key]');
+    console.log('mesa install <template> [version]');
+    console.log('mesa test <automation_key> <input_output_key>');
     console.log('mesa replay <task_id>');
     console.log('mesa logs [-v] [-n 50]');
     console.log('');
