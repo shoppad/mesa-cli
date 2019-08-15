@@ -16,7 +16,7 @@ function list(val) {
   return val.split(',');
 }
 program
-  .version('0.1.0')
+  .version('2.0.1')
   .usage('[options] <file ...>')
   .option('-e, --env [value]', 'Environment to use (filename in `./config/`)')
   .option('-a, --automation [value]', 'Automation key')
@@ -148,8 +148,6 @@ switch (cmd) {
       // {{url}}/admin/{{uuid}}/automations/{{automation_key}}.json
       request('GET', `automations/${automation}.json`, {}, function(response, data) {
 
-        mesa = require('./mesaModel');
-
         if (response.config) {
 
           const strMesa = JSON.stringify(response, null, 2);
@@ -189,7 +187,7 @@ switch (cmd) {
     }
 
     files.forEach(function(taskId) {
-      request('POST', `task/${taskId}/replay.json`);
+      request('POST', `tasks/${taskId}/replay.json`);
     });
     break;
 
