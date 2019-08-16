@@ -30,7 +30,7 @@ let [cmd, ... files] = program.args;
 
 // Load config from config.yml
 let env = program.env ? program.env : null;
-env = process.env.ENV ? process.env.ENV : env;
+env = env ? env : process.env.ENV;
 let config;
 try {
   config = require('config-yml').load(env);
