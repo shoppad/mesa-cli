@@ -88,12 +88,10 @@ switch (cmd) {
           const filepath = `${dir}/${filename}`;
           if (filename.indexOf('mesa.json') === -1) {
             upload(filepath);
+            sleep(500);
           }
         });
-        setTimeout(function() {
-          upload(mesa);
-        }, 2000);
-
+        upload(mesa);
       });
     }
     // Just upload the files
@@ -423,4 +421,18 @@ function request(method, endpoint, data, cb){
     });
 
 
+}
+
+/**
+ * Hacky sleep() method to avoid rate limit errors
+ *
+ * @param milliseconds
+ */
+function sleep(milliseconds) {
+  var start = new Date().getTime();
+  for (var i = 0; i < 1e7; i++) {
+    if ((new Date().getTime() - start) > milliseconds){
+      break;
+    }
+  }
 }
