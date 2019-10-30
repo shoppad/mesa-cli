@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 const program = require('commander');
 const fs = require('fs');
-const path = require('path')
-const axios = require("axios");
-const sh = require("shelljs");
+const path = require('path');
+const axios = require('axios');
+const sh = require('shelljs');
 
 let apiUrl = 'https://api.getmesa.com/v1/admin';
 
 // Get the current dir
 const dir = sh.pwd().stdout;
-
 
 // Get arguments and options
 function list(val) {
@@ -26,7 +25,7 @@ program
   .option('-p, --payload [value]', 'Payload')
   .parse(process.argv);
 
-let [cmd, ... files] = program.args;
+let [cmd, ...files] = program.args;
 
 // Load config from config.yml
 let env = program.env ? program.env : null;
@@ -34,18 +33,19 @@ env = env ? env : process.env.ENV;
 let config;
 try {
   config = require('config-yml').load(env);
-  console.log('Loaded shop config from: Local config')
-}
-catch (e) {
+  console.log('Loaded shop config from: Local config');
+} catch (e) {
   try {
     process.chdir(`${process.env.HOME}/.mesa`);
     config = require('config-yml').load(env);
     process.chdir(dir);
-    console.log('Loaded shop config from: Global config in ~/.mesa')
+    console.log('Loaded shop config from: Global config in ~/.mesa');
   } catch (e) {
     console.log(e);
     const configFile = env ? env : 'config';
-    return console.log(`Could not find an appropriate ${configFile}.yml file. Exiting.`);
+    return console.log(
+      `Could not find an appropriate ${configFile}.yml file. Exiting.`
+    );
   }
 }
 if (!config.uuid && cmd) {
@@ -62,15 +62,12 @@ let mesa;
 try {
   mesa = fs.readFileSync(`${dir}/mesa.json`, 'utf8');
   mesa = JSON.parse(mesa);
-}
-catch (e) {
+} catch (e) {
   //return console.log('Could not find mesa.json. Exiting.');
 }
 
 switch (cmd) {
-
   case 'push':
-
     files == [] ? ['mesa.json'] : files;
     let mesa = null;
 
@@ -91,14 +88,22 @@ switch (cmd) {
             sleep(500);
           }
         });
-        upload(mesa);
+        // Make sure all of the script uploads have time to finish
+        console.log('Sleeping for 5 seconds before setting mesa.json');
+        setTimeout(function() {
+          console.log('Setting mesa.json');
+          upload(mesa);
+        }, 5000);
       });
     }
     // Just upload the files
     else {
       files.forEach(function(filename) {
         const filepath = `${dir}/${filename}`;
-        if (filename.indexOf('mesa.json') === -1) {
+        if (
+          filename.indexOf('mesa.json') === -1 &&
+          fs.lstatSync(filepath).isFile()
+        ) {
           upload(filepath);
         }
       });
@@ -106,36 +111,35 @@ switch (cmd) {
 
     break;
 
-
   case 'watch':
-
     var watch = require('watch');
 
-    watch.watchTree(dir, {
-      filter: function (filename) {
-        // Exclude node_modules, only look for .js and .md files
-        return filename.indexOf(/node_modules|.git/) === -1;
+    watch.watchTree(
+      dir,
+      {
+        filter: function(filename) {
+          // Exclude node_modules, only look for .js and .md files
+          return filename.indexOf(/node_modules|.git/) === -1;
+        }
       },
-    }, function (filepath, curr, prev) {
-
-      // Ignore the initial index of all files
-      if (typeof filepath === 'object') {
-        return;
+      function(filepath, curr, prev) {
+        // Ignore the initial index of all files
+        if (typeof filepath === 'object') {
+          return;
+        }
+        console.log(filepath);
+        if (filepath.indexOf('.js')) {
+          upload(filepath);
+        }
       }
-      console.log(filepath);
-      if (filepath.indexOf('.js')) {
-        upload(filepath);
-      }
-    })
+    );
     break;
 
   case 'pull':
-
     download(files);
     break;
 
   case 'export':
-
     // In this instance, `files` is the template name
     if (files == []) {
       return console.log('ERROR', 'No template specified');
@@ -144,10 +148,11 @@ switch (cmd) {
     files.forEach(function(automation) {
       // Get mesa.json
       // {{url}}/admin/{{uuid}}/automations/{{automation_key}}.json
-      request('GET', `automations/${automation}.json`, {}, function(response, data) {
-
+      request('GET', `automations/${automation}.json`, {}, function(
+        response,
+        data
+      ) {
         if (response.config) {
-
           const strMesa = JSON.stringify(response, null, 2);
           console.log('Writing configuration to mesa.json');
           // console.log(strMesa);
@@ -156,7 +161,6 @@ switch (cmd) {
           // Download and save scripts
           download('all', automation);
         }
-
       });
     });
     break;
@@ -168,13 +172,18 @@ switch (cmd) {
     }
 
     files.forEach(function(template) {
-      const response = request('POST', `templates/install.json`, {
-        template: template,
-        force: program.force ? 1 : 0,
-      }, function(data) {
-        console.log(`Installed ${template}. Log:`)
-        console.log(data.log);
-      });
+      const response = request(
+        'POST',
+        `templates/install.json`,
+        {
+          template: template,
+          force: program.force ? 1 : 0
+        },
+        function(data) {
+          console.log(`Installed ${template}. Log:`);
+          console.log(data.log);
+        }
+      );
     });
     break;
 
@@ -201,43 +210,53 @@ switch (cmd) {
 
     const automationKey = files[0];
     const triggerKey = files[1];
-    request('POST', `${automationKey}/triggers/${triggerKey}/test.json`, {
-      payload: program.payload,
-    }, function(data) {
-      console.log(data);
-      if (data.task.id) {
-        console.log('Test successfully enqueued:')
-        console.log(`https://${config.uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/queue/task/${data.task.id}`);
-        console.log('');
+    request(
+      'POST',
+      `${automationKey}/triggers/${triggerKey}/test.json`,
+      {
+        payload: program.payload
+      },
+      function(data) {
+        console.log(data);
+        if (data.task.id) {
+          console.log('Test successfully enqueued:');
+          console.log(
+            `https://${config.uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/queue/task/${data.task.id}`
+          );
+          console.log('');
+        }
       }
-    });
+    );
     break;
 
   case 'logs':
     const response = request('GET', `logs.json`, {}, function(data) {
-
       // Truncate the array if necessary
       console.log(program);
       if (program.number) {
-        data.logs = data.logs.slice(Math.max(data.logs.length - parseInt(program.number)));
+        data.logs = data.logs.slice(
+          Math.max(data.logs.length - parseInt(program.number))
+        );
       }
 
       data.logs.forEach(item => {
-
         const date = new Date(item['@timestamp']);
-        const dateString = date.toLocaleDateString("en-US") + ' ' + date.toLocaleTimeString("en-US");
-        console.log(`[${dateString}] [${item.trigger.name}] [${item.trigger._id}] ${item.message}`);
+        const dateString =
+          date.toLocaleDateString('en-US') +
+          ' ' +
+          date.toLocaleTimeString('en-US');
+        console.log(
+          `[${dateString}] [${item.trigger.name}] [${item.trigger._id}] ${item.message}`
+        );
 
         // Print details
         if (program.verbose && item.fields && item.fields.meta) {
           try {
-            console.log(JSON.parse(item.fields.meta));
-          }
-          catch (e) {
+            console.log(JSON.stringify(JSON.parse(item.fields.meta), null, 2));
+          } catch (e) {
             console.log(item.fields.meta);
           }
         }
-
       });
     });
     break;
@@ -253,9 +272,15 @@ switch (cmd) {
     console.log('mesa logs [-v] [-n 50]');
     console.log('');
     console.log('Optional Parameters:');
-    console.log('  -e, --env [value] : Environment to use (filename in `./config/`).');
-    console.log('  -a, --automation [value] : Automation key. Automatically determined by the mesa.json file if not specified.');
-    console.log('  -f, --force : Force, overwrite config for inputs/outputs/storage.');
+    console.log(
+      '  -e, --env [value] : Environment to use (filename in `./config/`).'
+    );
+    console.log(
+      '  -a, --automation [value] : Automation key. Automatically determined by the mesa.json file if not specified.'
+    );
+    console.log(
+      '  -f, --force : Force, overwrite config for inputs/outputs/storage.'
+    );
     console.log('  -n, --number [value] : Number.');
     console.log('  -v, --verbose : Verbose: Show log metadata.');
     console.log('');
@@ -266,6 +291,9 @@ switch (cmd) {
  * @param {string} filepath
  */
 function upload(filepath, cb) {
+  if (!fs.lstatSync(filepath).isFile()) {
+    return;
+  }
 
   const filename = path.parse(filepath).base;
   const extension = path.extname(filename);
@@ -282,21 +310,28 @@ function upload(filepath, cb) {
         code: contents
       }
     });
-  }
-  else if (filename.indexOf('mesa.json') !== -1) {
+  } else if (filename.indexOf('mesa.json') !== -1) {
     contents = JSON.parse(contents);
+    const readme = fs.readFileSync(
+      filepath.replace('mesa.json', 'README.md'),
+      'utf8'
+    );
+    if (readme) {
+      contents.readme = readme;
+    }
     if (!contents.config) {
-      return console.log('Mesa.json did not contain any config elements. Skipping.');
+      return console.log(
+        'Mesa.json did not contain any config elements. Skipping.'
+      );
     }
     console.log('Importing configuration from mesa.json...');
-    const force = program.force ? '?force=1': '';
-    request('POST', `automations.json${force}`, contents, function (data) {
+    const force = program.force ? '?force=1' : '';
+    request('POST', `automations.json${force}`, contents, function(data) {
       console.log('');
       if (data.log) {
         console.log(`Log from mesa.json import of automation ${contents.key}:`);
         console.log(data.log);
-      }
-      else {
+      } else {
         console.log('There was a problem importing the mesa.json file:');
         console.log(data);
       }
@@ -305,15 +340,12 @@ function upload(filepath, cb) {
         cb(data);
       }
     });
-  }
-  else {
+  } else {
     console.log(`Skipping ${filename}`);
   }
-
 }
 
 function getAutomationKey(filepath) {
-
   if (program.automation) {
     return program.automation;
   }
@@ -333,14 +365,12 @@ function getAutomationKey(filepath) {
   return mesa.key;
 }
 
-
 /**
  * Download and save files via the Mesa Scripts API.
  *
  * @param {array} files
  */
 function download(files, automation) {
-
   if (!automation) {
     automation = getAutomationKey(files[0]);
   }
@@ -349,15 +379,12 @@ function download(files, automation) {
   }
 
   request('GET', `${automation}/scripts.json`, {}, function(response, data) {
-
     response.scripts.forEach(function(item) {
-
       if (files === 'all' || files.indexOf(item.filename) !== -1) {
-
         // filename = !mesa || !mesa.directories || !mesa.directories.lib ?
         //   item.filename :
         //   item.filename.replace(`${mesa.directories.lib}/`, '');
-        const filename = item.filename
+        const filename = item.filename;
 
         createDirectories(filename);
 
@@ -366,7 +393,6 @@ function download(files, automation) {
       }
     });
   });
-
 }
 
 /**
@@ -382,7 +408,6 @@ function createDirectories(filename) {
   }
 }
 
-
 /**
  * Call the Mesa API.
  *
@@ -391,8 +416,7 @@ function createDirectories(filename) {
  * @param {object} data
  * @param {function} cb
  */
-function request(method, endpoint, data, cb){
-
+function request(method, endpoint, data, cb) {
   // Let the api url be overwritten in config.yml
   apiUrl = config.api_url ? config.api_url : apiUrl;
 
@@ -400,27 +424,26 @@ function request(method, endpoint, data, cb){
     url: `${apiUrl}/${config.uuid}/${endpoint}`,
     method: method,
     headers: { 'x-api-key': config.key },
-    json: true,
+    json: true
   };
   if (method !== 'GET' && data) {
     options.data = data;
   }
 
   axios(options)
-    .then(function (response) {
+    .then(function(response) {
       if (cb) {
         cb(response.data);
       }
       console.log(`Success: ${options.method} ${options.url}`);
     })
-    .catch(function (error) {
+    .catch(function(error) {
       //console.log(error.response.data);
-      const msg = error.response && error.response.data ? error.response.data : error;
+      const msg =
+        error.response && error.response.data ? error.response.data : error;
       // const msg = error.response && error.response.status ? `${error.response.status}: ${error.response.statusText}` : error;
       console.log('ERROR', options, msg);
     });
-
-
 }
 
 /**
@@ -431,7 +454,7 @@ function request(method, endpoint, data, cb){
 function sleep(milliseconds) {
   var start = new Date().getTime();
   for (var i = 0; i < 1e7; i++) {
-    if ((new Date().getTime() - start) > milliseconds){
+    if (new Date().getTime() - start > milliseconds) {
       break;
     }
   }
