@@ -312,13 +312,16 @@ function upload(filepath, cb) {
     });
   } else if (filename.indexOf('mesa.json') !== -1) {
     contents = JSON.parse(contents);
-    const readme = fs.readFileSync(
-      filepath.replace('mesa.json', 'README.md'),
-      'utf8'
-    );
-    if (readme) {
-      contents.readme = readme;
+    try {
+      const readme = fs.readFileSync(
+        filepath.replace('mesa.json', 'README.md'),
+        'utf8'
+      );
+      if (readme) {
+        contents.readme = readme;
+      }
     }
+    catch(error) { }
     if (!contents.config) {
       return console.log(
         'Mesa.json did not contain any config elements. Skipping.'
