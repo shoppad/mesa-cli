@@ -13,3 +13,9 @@ npm version
 npm version 2.0.3
 # Publish
 npm publish
+```
+
+To upgrade to the latest version
+```
+yarn global add mesa@latest
+```
