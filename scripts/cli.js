@@ -61,6 +61,9 @@ console.log('');
 let mesa;
 try {
   mesa = fs.readFileSync(`${dir}/mesa.json`, 'utf8');
+  if (!mesa) {
+    mesa = fs.readFileSync(`${dir}/mesa-collection.json`, 'utf8');
+  }
   mesa = JSON.parse(mesa);
 } catch (e) {
   //return console.log('Could not find mesa.json. Exiting.');
@@ -68,8 +71,11 @@ try {
 
 switch (cmd) {
   case 'push':
-    files == [] ? ['mesa.json'] : files;
+    files == [] ? ['mesa.json', 'mesa-collection.json'] : files;
     let mesa = null;
+
+    // Currently we're just gonna force push all `push` cmds because the logic gets too difficult otherwise
+    program.force = true;
 
     files.forEach(function(filename) {
       const filepath = `${dir}/${filename}`;
@@ -204,15 +210,12 @@ switch (cmd) {
       return console.log('ERROR', 'No automation key specified');
     }
 
-    if (!files[1]) {
-      return console.log('ERROR', 'No Input or Output key specified');
-    }
-
     const automationKey = files[0];
     const triggerKey = files[1];
+    const url = triggerKey ? `${automationKey}/triggers/${triggerKey}/test.json` : `automations/${automationKey}/test.json`;
     request(
       'POST',
-      `${automationKey}/triggers/${triggerKey}/test.json`,
+      url,
       {
         payload: program.payload
       },
@@ -230,9 +233,14 @@ switch (cmd) {
     break;
 
   case 'logs':
-    const response = request('GET', `logs.json`, {}, function(data) {
+    let params = program.payload ? JSON.parse(program.payload) : {};
+    if (program.number) {
+      params.limit = program.number;
+    }
+    const logsUrl = 'logs.json?' + Object.keys(params).map(key => key + '=' + params[key]).join('&');
+
+    const response = request('GET', logsUrl, {}, function(data) {
       // Truncate the array if necessary
-      console.log(program);
       if (program.number) {
         data.logs = data.logs.slice(
           Math.max(data.logs.length - parseInt(program.number))
@@ -286,7 +294,7 @@ switch (cmd) {
     console.log('');
 }
 
-/**Skipping
+/**
  *
  * @param {string} filepath
  */
@@ -343,6 +351,15 @@ function upload(filepath, cb) {
         cb(data);
       }
     });
+  }
+  else if (filename.indexOf('mesa-collection.json') !== -1) {
+    contents = JSON.parse(contents);
+    if (!contents.templates) {
+      return console.log(
+        'Mesa-collection.json did not contain any templates. Skipping.'
+      );
+    }
+    console.log('Sorry, mesa-collection.json files are currently not supported in the mesa-cli. Please import each template individually.');
   } else {
     console.log(`Skipping ${filename}`);
   }
