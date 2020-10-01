@@ -26,10 +26,12 @@
     "pull": "./scripts/cli.js pull",
     "initialize": "./scripts/cli.js initialize",
     "replay": "./scripts/cli.js replay",
-    "logs": "./scripts/cli.js logs"
+    "logs": "./scripts/cli.js logs",
+    "fields": "./scripts/generate-fields.js"
   },
   "bin": {
-    "mesa": "./scripts/cli.js"
+    "mesa": "./scripts/cli.js",
+    "mesa-fields": "./scripts/generate-fields.js"
   },
   "dependencies": {
     "axios": "^0.18.0",
