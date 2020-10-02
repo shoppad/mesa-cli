@@ -15,7 +15,7 @@ function list(val) {
   return val.split(',');
 }
 program
-  .version('2.0.1')
+  .version('2.0.6')
   .usage('[options] <file ...>')
   .option('-e, --env [value]', 'Environment to use (filename in `./config/`)')
   .option('-a, --automation [value]', 'Automation key')

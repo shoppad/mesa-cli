@@ -15,7 +15,6 @@ function list(val) {
   return val.split(',');
 }
 program
-  .version('2.0.1')
   .usage('[options] <file ...>')
   .option('--output [value]', 'Folder to save to. Defaults to ../fields/')
   .option('--print', 'console.log() the result instead of saving to a file')
