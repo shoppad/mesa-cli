@@ -34,7 +34,7 @@
     "mesa-fields": "./scripts/generate-fields.js"
   },
   "dependencies": {
-    "axios": "^0.18.0",
+    "axios": "^0.21.2",
     "commander": "^2.20.0",
     "config-yml": "^0.10.3",
     "shelljs": "^0.8.3",
