@@ -257,9 +257,10 @@ export class AuthClient {
 
   /**
    * Start device authorization flow
+   * Endpoint: POST /api/cli/auth/device.json
    */
   async startDeviceAuth(): Promise<DeviceAuthStartResponse> {
-    const url = `${this.baseUrl}/api/cli/auth/device`;
+    const url = `${this.baseUrl}/api/cli/auth/device.json`;
 
     if (this.verbose) {
       console.log(`[AUTH] POST ${url}`);
@@ -295,9 +296,10 @@ export class AuthClient {
 
   /**
    * Check device authorization status
+   * Endpoint: GET /api/cli/auth/status.json?device_code=XXX
    */
   async checkDeviceAuthStatus(deviceCode: string): Promise<DeviceAuthStatusResponse> {
-    const url = `${this.baseUrl}/api/cli/auth/status`;
+    const url = `${this.baseUrl}/api/cli/auth/status.json`;
 
     if (this.verbose) {
       console.log(`[AUTH] GET ${url}`);
