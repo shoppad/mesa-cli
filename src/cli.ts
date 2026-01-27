@@ -30,6 +30,8 @@ import {
   AutomationError,
 } from './lib/automation.js';
 import { isObject } from './types/index.js';
+import { registerWorkflowCommand } from './commands/workflow/index.js';
+import { registerCacheCommand } from './commands/cache.js';
 
 // =============================================================================
 // CLI Setup
@@ -821,6 +823,18 @@ authCommand
       console.log('Run `mesa auth login` to authenticate.');
     }
   });
+
+// =============================================================================
+// Workflow Commands
+// =============================================================================
+
+registerWorkflowCommand(program);
+
+// =============================================================================
+// Cache Commands
+// =============================================================================
+
+registerCacheCommand(program);
 
 // =============================================================================
 // Error Handling

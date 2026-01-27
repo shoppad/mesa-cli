@@ -165,6 +165,75 @@ Replay a previously executed task.
 mesa replay 507f1f77bcf86cd799439011
 ```
 
+### `mesa workflow create`
+
+Create a new workflow automation interactively or from JSON input.
+
+#### Interactive mode (default)
+
+```bash
+mesa workflow create
+```
+
+Launches an interactive wizard that guides you through:
+1. Naming your workflow
+2. Selecting a trigger (e.g., "Shopify - Order Created")
+3. Adding actions (e.g., "Slack - Send Message")
+4. Configuring fields with optional token insertion from previous steps
+5. Saving or pushing the workflow
+
+#### Non-interactive mode
+
+```bash
+# From a JSON file
+mesa workflow create --non-interactive --input workflow.json
+
+# From stdin
+echo '{"name":"My Workflow","steps":[...]}' | mesa workflow create --non-interactive
+
+# Output options
+mesa workflow create --non-interactive --input workflow.json --json     # Print JSON to stdout
+mesa workflow create --non-interactive --input workflow.json --push     # Push directly to MESA
+mesa workflow create --non-interactive --input workflow.json --output ./my-workflow.json
+```
+
+#### Non-interactive JSON format
+
+```json
+{
+  "name": "Order to Email",
+  "key": "order_to_email",
+  "steps": [
+    {
+      "type": "trigger",
+      "app": "shopify",
+      "operation_id": "orders_create",
+      "key": "shopify_order"
+    },
+    {
+      "type": "action",
+      "app": "email",
+      "operation_id": "email",
+      "key": "email_notification",
+      "fields": {
+        "to": "{{shopify_order.order.customer.email}}",
+        "subject": "Order Confirmation",
+        "message": "Thank you for your order {{shopify_order.order.name}}"
+      }
+    }
+  ]
+}
+```
+
+**Note:** Use `operation_id` to specify the trigger/action type. You can find available operation IDs by running the interactive wizard or checking the MESA UI.
+
+#### Token syntax
+
+Use `{{step_key.field.path}}` to reference outputs from previous steps:
+- `{{shopify_order.order.id}}` - Order ID
+- `{{shopify_order.order.customer.email}}` - Customer email
+- `{{shopify_order.order.line_items.0.sku}}` - First line item SKU
+
 ### `mesa logs [automation]`
 
 View recent logs with interactive automation selection.
@@ -182,6 +251,22 @@ When run without arguments, shows an interactive searchable list of automations 
 - Last run time for each automation
 - Type to filter by name
 - Option to view all logs
+
+### `mesa cache clear`
+
+Clear the local cache (trigger definitions, app configs).
+
+```bash
+mesa cache clear
+```
+
+### `mesa cache status`
+
+Show cache location and size.
+
+```bash
+mesa cache status
+```
 
 ## Global Options
 
@@ -241,10 +326,20 @@ mesa-cli/
 ├── src/
 │   ├── cli.ts              # Main CLI entry point
 │   ├── generate-fields.ts  # Field generator utility
+│   ├── commands/
+│   │   └── workflow/       # Workflow command
+│   │       ├── index.ts    # Command registration
+│   │       └── create.ts   # Create subcommand
 │   ├── lib/
 │   │   ├── automation.ts   # Automation helpers
 │   │   ├── client.ts       # HTTP client
-│   │   └── config.ts       # Config loading
+│   │   ├── config.ts       # Config loading
+│   │   └── workflow/       # Workflow builder modules
+│   │       ├── trigger-registry.ts  # App/trigger search
+│   │       ├── step-builder.ts      # Step configuration
+│   │       ├── token-picker.ts      # Token insertion
+│   │       ├── workflow-builder.ts  # Main wizard
+│   │       └── serializer.ts        # JSON conversion
 │   └── types/
 │       └── index.ts        # Type definitions
 ├── dist/                   # Compiled output (generated)

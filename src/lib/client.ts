@@ -21,6 +21,10 @@ import type {
   TemplateInstallResponse,
   DeviceAuthStartResponse,
   DeviceAuthStatusResponse,
+  TriggerRegistry,
+  AppConfig,
+  MesaAutomation,
+  SecretEntry,
 } from '../types/index.js';
 import { isApiError } from '../types/index.js';
 import { getApiUrl } from './config.js';
@@ -247,6 +251,131 @@ export class MesaClient {
       template,
       force: force ? 1 : 0,
     });
+  }
+
+  // =========================================================================
+  // Workflow Operations (CLI API)
+  // =========================================================================
+
+  /**
+   * Make a CLI API request
+   * CLI endpoints use /api/cli/* path with uuid as query parameter
+   */
+  private async cliRequest<T>(endpoint: string): Promise<T> {
+    // Derive the CLI API base from the admin API URL
+    // e.g., https://api.getmesa.com/v1/admin -> https://api.getmesa.com/v1/api/cli
+    // or https://app.theshoppad.com/api/admin -> https://app.theshoppad.com/api/cli
+    let cliBaseUrl: string;
+    if (this.baseUrl.includes('/v1/admin')) {
+      // Production: api.getmesa.com/v1/admin -> api.getmesa.com/v1/api/cli
+      cliBaseUrl = this.baseUrl.replace('/v1/admin', '/v1/api/cli');
+    } else if (this.baseUrl.includes('/api/admin')) {
+      // Direct app URL: /api/admin -> /api/cli
+      cliBaseUrl = this.baseUrl.replace('/api/admin', '/api/cli');
+    } else {
+      // Fallback: append /cli to base
+      cliBaseUrl = this.baseUrl.replace(/\/admin$/, '/cli');
+    }
+
+    const url = `${cliBaseUrl}/${endpoint}`;
+
+    const config: AxiosRequestConfig = {
+      method: 'GET',
+      url,
+      headers: {
+        'X-Api-Key': this.apiKey,
+        'Content-Type': 'application/json',
+      },
+      params: {
+        uuid: this.uuid,
+      },
+    };
+
+    if (this.verbose) {
+      console.log(`[CLI API] GET ${url}`);
+      console.log('[CLI API] Query params:', { uuid: this.uuid });
+    }
+
+    try {
+      const response: AxiosResponse<T> = await axios(config);
+
+      if (this.verbose) {
+        console.log(`[CLI API] Response status: ${response.status}`);
+      }
+
+      return response.data;
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const statusCode = error.response?.status ?? 500;
+        const responseData: unknown = error.response?.data;
+
+        let apiError: ApiErrorResponse;
+        if (isApiError(responseData)) {
+          apiError = responseData;
+        } else {
+          apiError = {
+            error: error.message,
+            status: statusCode,
+          };
+        }
+
+        if (this.verbose) {
+          console.error(`[CLI API] Error: ${statusCode}`, apiError);
+        }
+
+        throw new ApiError(
+          apiError.error ?? apiError.message ?? 'CLI API request failed',
+          statusCode,
+          apiError
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get trigger registry (list of all available apps/triggers)
+   * Calls the CLI API endpoint /cli/triggers.json which wraps existing trigger functionality
+   */
+  async getTriggerRegistry(): Promise<TriggerRegistry> {
+    return this.cliRequest<TriggerRegistry>('triggers.json');
+  }
+
+  /**
+   * Get app configuration with entities, actions, and fields
+   * @param appKey - The app key (e.g., 'shopify', 'slack')
+   * @param type - Whether this is an input (trigger) or output (action)
+   */
+  async getAppConfig(appKey: string, type: 'input' | 'output'): Promise<AppConfig> {
+    return this.cliRequest<AppConfig>(`triggers/${appKey}/${type}.json`);
+  }
+
+  /**
+   * Create a new workflow/automation
+   * @param workflow - The workflow definition to create
+   * @param force - Whether to overwrite existing automation with same key
+   */
+  async createWorkflow(
+    workflow: MesaAutomation,
+    force = false
+  ): Promise<AutomationImportResponse> {
+    const endpoint = force ? 'automations.json?force=1' : 'automations.json';
+    return this.request<AutomationImportResponse>('POST', endpoint, workflow as unknown as Record<string, unknown>);
+  }
+
+  /**
+   * Get available secrets/connections for a secret type
+   * @param secretType - The secret type (e.g., 'shopify', 'slack', 'google')
+   */
+  async getSecrets(secretType: string): Promise<SecretEntry[]> {
+    try {
+      const response = await this.cliRequest<{ secrets: SecretEntry[] }>(`secrets/${secretType}.json`);
+      return response.secrets || [];
+    } catch {
+      // If API doesn't support secrets endpoint, return empty array
+      return [];
+    }
   }
 }
 
