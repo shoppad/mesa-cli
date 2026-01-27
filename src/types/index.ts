@@ -175,10 +175,17 @@ export interface TaskResponse {
  * Log entry from logs endpoint
  */
 export interface LogEntry {
-  '@timestamp': string;
+  '@timestamp': string | number;
   message: string;
   level?: string;
-  trigger: {
+  task?: {
+    _id: string;
+    automation?: {
+      _id: string;
+      automation_name: string;
+    };
+  };
+  trigger?: {
     name: string;
     _id: string;
   };
@@ -192,6 +199,26 @@ export interface LogEntry {
  */
 export interface LogsResponse {
   logs: LogEntry[];
+}
+
+/**
+ * Automation summary from list endpoint
+ */
+export interface AutomationListItem {
+  _id: string;
+  key: string;
+  name: string;
+  enabled: boolean;
+  source?: string;
+  destination?: string;
+  updated_at?: string;
+}
+
+/**
+ * Response from GET /automations.json
+ */
+export interface AutomationsListResponse {
+  automations: AutomationListItem[];
 }
 
 /**

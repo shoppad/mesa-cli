@@ -165,15 +165,23 @@ Replay a previously executed task.
 mesa replay 507f1f77bcf86cd799439011
 ```
 
-### `mesa logs`
+### `mesa logs [automation]`
 
-View recent logs.
+View recent logs with interactive automation selection.
 
 ```bash
-mesa logs              # Recent logs
-mesa logs -n 50        # Last 50 logs
-mesa logs -v           # Verbose (show metadata)
+mesa logs                           # Interactive: select automation from list
+mesa logs <automation-id>           # Logs for specific automation ID
+mesa logs <automation-id> -n 10     # Last 10 logs for automation
+mesa logs -n 50                     # Last 50 logs (skips interactive selection)
+mesa logs -v                        # Verbose (show metadata)
 ```
+
+When run without arguments, shows an interactive searchable list of automations with:
+- 🟢 Enabled / ⚪ Disabled status
+- Last run time for each automation
+- Type to filter by name
+- Option to view all logs
 
 ## Global Options
 
@@ -240,8 +248,6 @@ mesa-cli/
 │   └── types/
 │       └── index.ts        # Type definitions
 ├── dist/                   # Compiled output (generated)
-├── docs/
-│   └── auth-investigation.md
 ├── package.json
 └── tsconfig.json
 ```

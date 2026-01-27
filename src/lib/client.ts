@@ -15,6 +15,7 @@ import type {
   ScriptsResponse,
   AutomationImportResponse,
   AutomationResponse,
+  AutomationsListResponse,
   TaskResponse,
   LogsResponse,
   TemplateInstallResponse,
@@ -92,6 +93,9 @@ export class MesaClient {
 
     if (this.verbose) {
       console.log(`[API] ${method} ${url}`);
+      if (params && Object.keys(params).length > 0) {
+        console.log('[API] Query params:', params);
+      }
       if (data) {
         console.log('[API] Request body:', JSON.stringify(data, null, 2));
       }
@@ -171,6 +175,13 @@ export class MesaClient {
    */
   async getAutomation(automationKey: string): Promise<AutomationResponse> {
     return this.request<AutomationResponse>('GET', `automations/${automationKey}.json`);
+  }
+
+  /**
+   * List all automations
+   */
+  async listAutomations(): Promise<AutomationsListResponse> {
+    return this.request<AutomationsListResponse>('GET', 'automations.json');
   }
 
   /**

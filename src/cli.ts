@@ -18,6 +18,7 @@
 import { Command } from 'commander';
 import { readFileSync, writeFileSync, existsSync, lstatSync, mkdirSync, watch as fsWatch } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
+import { search } from '@inquirer/prompts';
 import type { GlobalOptions, MesaConfig } from './types/index.js';
 import { loadConfig, ConfigError, saveCredentials, hasCredentials, clearCredentials, getCredentialsPath } from './lib/config.js';
 import { MesaClient, ApiError, AuthClient, getAuthBaseUrl } from './lib/client.js';
@@ -107,7 +108,7 @@ function ensureDirectoryExists(filepath: string): void {
 /**
  * Format a date for log output
  */
-function formatLogDate(timestamp: string): string {
+function formatLogDate(timestamp: string | number): string {
   const date = new Date(timestamp);
   return `${date.toLocaleDateString('en-US')} ${date.toLocaleTimeString('en-US')}`;
 }
@@ -445,16 +446,196 @@ program
 // Logs Command
 // =============================================================================
 
+/**
+ * Get last run time for each automation from logs
+ */
+async function getAutomationLastRuns(
+  client: MesaClient
+): Promise<Map<string, Date>> {
+  const lastRuns = new Map<string, Date>();
+
+  try {
+    // Fetch recent logs to determine last run times
+    const response = await client.getLogs({ limit: '100' });
+
+    for (const log of response.logs) {
+      const automationId = log.task?.automation?._id;
+      if (automationId && !lastRuns.has(automationId)) {
+        const timestamp = log['@timestamp'];
+        const date = typeof timestamp === 'number'
+          ? new Date(timestamp)
+          : new Date(timestamp);
+        lastRuns.set(automationId, date);
+      }
+    }
+  } catch {
+    // Ignore errors - we'll just show "Never" for last run
+  }
+
+  return lastRuns;
+}
+
+/**
+ * Format relative time (e.g., "2 hours ago")
+ */
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays > 0) {
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  } else if (diffHours > 0) {
+    return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  } else if (diffMins > 0) {
+    return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  } else {
+    return 'just now';
+  }
+}
+
+/**
+ * Interactive automation selector for logs
+ */
+async function selectAutomation(
+  client: MesaClient
+): Promise<string | null> {
+  console.log('Fetching automations...');
+
+  // Fetch automations and last run times in parallel
+  const [automationsResponse, lastRuns] = await Promise.all([
+    client.listAutomations(),
+    getAutomationLastRuns(client),
+  ]);
+
+  const automations = automationsResponse.automations;
+
+  if (automations.length === 0) {
+    console.log('No automations found.');
+    return null;
+  }
+
+  // Build choices with last run info
+  interface AutomationChoice {
+    id: string;
+    name: string;
+    lastRun: string;
+    enabled: boolean;
+  }
+
+  const choices: AutomationChoice[] = automations.map((auto) => {
+    const lastRunDate = lastRuns.get(auto._id);
+    const lastRunStr = lastRunDate ? formatRelativeTime(lastRunDate) : 'Never';
+
+    return {
+      id: auto._id,
+      name: auto.name,
+      lastRun: lastRunStr,
+      enabled: auto.enabled,
+    };
+  });
+
+  // Sort by last run (most recent first), then by name
+  choices.sort((a, b) => {
+    if (a.lastRun === 'Never' && b.lastRun !== 'Never') return 1;
+    if (a.lastRun !== 'Never' && b.lastRun === 'Never') return -1;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Use search prompt for filtering
+  const selected = await search<string>({
+    message: 'Select an automation (type to filter):',
+    source: async (input) => {
+      const term = (input ?? '').toLowerCase();
+
+      // Always include "All automations" option at the top
+      const results: Array<{ name: string; value: string; description?: string }> = [
+        {
+          name: '📋 All automations',
+          value: '__all__',
+          description: 'Show logs from all automations',
+        },
+      ];
+
+      // Filter and add automation choices
+      const filtered = choices.filter(
+        (c) => c.name.toLowerCase().includes(term) || c.id.toLowerCase().includes(term)
+      );
+
+      for (const choice of filtered) {
+        const status = choice.enabled ? '🟢' : '⚪';
+        results.push({
+          name: `${status} ${choice.name}`,
+          value: choice.id,
+          description: `Last run: ${choice.lastRun} | ID: ${choice.id}`,
+        });
+      }
+
+      return results;
+    },
+  });
+
+  return selected === '__all__' ? null : selected;
+}
+
+/**
+ * Display logs
+ */
+function displayLogs(
+  logs: Array<{
+    '@timestamp': string | number;
+    message: string;
+    trigger?: { name: string; _id: string };
+    fields?: { meta?: string };
+  }>,
+  verbose: boolean
+): void {
+  for (const entry of logs) {
+    const dateStr = formatLogDate(entry['@timestamp']);
+    const triggerName = entry.trigger?.name ?? 'unknown';
+    const triggerId = entry.trigger?._id ?? '';
+    console.log(`[${dateStr}] [${triggerName}] [${triggerId}] ${entry.message}`);
+
+    // Print metadata if verbose
+    if (verbose && entry.fields?.meta) {
+      try {
+        const meta: unknown = JSON.parse(entry.fields.meta);
+        console.log(JSON.stringify(meta, null, 2));
+      } catch {
+        console.log(entry.fields.meta);
+      }
+    }
+  }
+}
+
 program
-  .command('logs')
-  .description('View recent logs')
-  .action(async (_opts: unknown, cmd: Command) => {
+  .command('logs [automation]')
+  .description('View recent logs (interactive selection if no automation specified)')
+  .action(async (automation: string | undefined, _opts: unknown, cmd: Command) => {
     const options = getGlobalOptions(cmd);
 
     try {
       const { client } = getClientFromOptions(options);
 
+      let selectedAutomation = automation;
+
+      // If no automation provided, show interactive selection
+      if (!selectedAutomation) {
+        selectedAutomation = await selectAutomation(client) ?? undefined;
+      }
+
       const params: Record<string, string> = {};
+
+      // Filter by automation if selected (not "all")
+      if (selectedAutomation) {
+        params.automation_id = selectedAutomation;
+        console.log(`\nShowing logs for automation: ${selectedAutomation}\n`);
+      } else {
+        console.log('\nShowing logs for all automations\n');
+      }
 
       // Parse payload as additional params if provided
       if (options.payload) {
@@ -485,21 +666,10 @@ program
         logs = logs.slice(Math.max(logs.length - limit, 0));
       }
 
-      for (const entry of logs) {
-        const dateStr = formatLogDate(entry['@timestamp']);
-        const triggerName = entry.trigger?.name ?? 'unknown';
-        const triggerId = entry.trigger?._id ?? '';
-        console.log(`[${dateStr}] [${triggerName}] [${triggerId}] ${entry.message}`);
-
-        // Print metadata if verbose
-        if (options.verbose && entry.fields?.meta) {
-          try {
-            const meta: unknown = JSON.parse(entry.fields.meta);
-            console.log(JSON.stringify(meta, null, 2));
-          } catch {
-            console.log(entry.fields.meta);
-          }
-        }
+      if (logs.length === 0) {
+        console.log('No logs found.');
+      } else {
+        displayLogs(logs, options.verbose ?? false);
       }
     } catch (error) {
       handleError(error);
@@ -570,13 +740,15 @@ authCommand
             console.log('');
 
             // Save credentials
+            // For dev, use the base URL + /api/admin path (routes are under /api mount)
+            const apiUrl = isDev ? `${baseUrl}/api/admin` : undefined;
             const credentialsPath = saveCredentials(
               {
                 uuid: status.uuid,
                 key: status.api_key,
                 authenticated_at: new Date().toISOString(),
               },
-              isDev ? baseUrl : undefined
+              apiUrl
             );
 
             console.log(`Credentials saved to: ${credentialsPath}`);
