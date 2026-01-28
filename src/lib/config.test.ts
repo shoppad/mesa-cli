@@ -10,7 +10,7 @@ import assert from 'node:assert';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { loadConfig, ConfigError, getCredentialsPath } from './config.js';
+import { loadConfig, ConfigError, getCredentialsPath, hasCredentials } from './config.js';
 
 describe('Config Module', () => {
   const testDir = join(tmpdir(), 'mesa-cli-test-' + Date.now());
@@ -24,14 +24,23 @@ describe('Config Module', () => {
   });
 
   describe('loadConfig', () => {
-    it('throws ConfigError when no config file exists', () => {
+    it('throws ConfigError when no config file exists (or falls back to global)', () => {
       const emptyDir = join(testDir, 'empty');
       mkdirSync(emptyDir, { recursive: true });
 
-      assert.throws(
-        () => loadConfig(emptyDir),
-        (err) => err instanceof ConfigError
-      );
+      // loadConfig falls back to global ~/.mesa/config.yml if local doesn't exist
+      // So behavior depends on whether global credentials are present
+      if (hasCredentials()) {
+        // If global credentials exist, loadConfig should return them (not throw)
+        const result = loadConfig(emptyDir);
+        assert.strictEqual(result.source, 'global');
+      } else {
+        // If no global credentials, loadConfig should throw
+        assert.throws(
+          () => loadConfig(emptyDir),
+          (err) => err instanceof ConfigError
+        );
+      }
     });
 
     it('loads config from config.yml in working directory', () => {

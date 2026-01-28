@@ -689,3 +689,432 @@ export function isMesaAutomation(value: unknown): value is MesaAutomation {
 export function isApiError(value: unknown): value is ApiErrorResponse {
   return isObject(value) && ('error' in value || 'message' in value);
 }
+
+// =============================================================================
+// Admin API Types (Workflow List/Activity/Time-Travel)
+// =============================================================================
+
+/**
+ * Trigger from admin API automations list (includes backfill eligibility)
+ */
+export interface AdminAutomationTrigger {
+  _id: string;
+  key: string;
+  name: string;
+  type: string;
+  trigger_type: 'input' | 'output';
+  trigger_name?: string;
+  entity?: string;
+  action?: string;
+  has_backfill?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Automation from admin API (includes triggers with backfill info)
+ */
+export interface AdminAutomation {
+  _id: string;
+  key: string;
+  name: string;
+  status: 'published' | 'draft' | 'deleted';
+  enabled: boolean;
+  debug?: boolean;
+  logging?: boolean;
+  source?: string;
+  destination?: string;
+  template?: string;
+  tags?: string[];
+  created_at?: string;
+  updated_at?: string;
+  created_at_iso?: string;
+  updated_at_iso?: string;
+  triggers?: AdminAutomationTrigger[];
+}
+
+/**
+ * Response from GET /admin/api/automations.json
+ */
+export interface AdminAutomationsListResponse {
+  uuid: string;
+  automations: AdminAutomation[];
+  all_automations?: AdminAutomation[];
+  max_automations?: number;
+  deleted_retention_days?: number;
+}
+
+/**
+ * Full trigger from automation details endpoint
+ * Includes _id needed for test endpoints
+ */
+export interface FullAutomationTrigger {
+  _id: string;
+  key: string;
+  name: string;
+  type: string;
+  trigger_type: 'input' | 'output';
+  trigger_name?: string;
+  entity?: string;
+  action?: string;
+  has_backfill?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Response from GET /admin/api/automations/{id}.json
+ * Contains inputs/outputs with full trigger details including _id
+ */
+export interface FullAutomationResponse {
+  _id: string;
+  key: string;
+  name: string;
+  status: 'published' | 'draft' | 'deleted';
+  enabled: boolean;
+  inputs: FullAutomationTrigger[];
+  outputs: FullAutomationTrigger[];
+  source?: string;
+  destination?: string;
+  template?: string;
+  tags?: string[];
+  has_backfill?: boolean;
+  has_tested?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_at_iso?: string;
+  updated_at_iso?: string;
+}
+
+/**
+ * Run/activity item from queue endpoint
+ */
+export interface AutomationRun {
+  _id: string;
+  uuid: string;
+  automation_id: string;
+  task_id?: string;
+  status: 'ready' | 'running' | 'success' | 'pause' | 'fail' | 'skip';
+  badges?: string[];
+  tasks?: number;
+  completes?: number;
+  stops?: number;
+  fails?: number;
+  premium_tasks?: number;
+  unbillable?: boolean;
+  unbillable_reason?: string;
+  source?: string;
+  created_at?: string;
+  updated_at?: string;
+  str_created_at?: string;
+  str_updated_at?: string;
+}
+
+/**
+ * Response from GET /admin/api/automations/{id}/queue.json
+ */
+export interface AutomationRunsResponse {
+  queue: AutomationRun[];
+  page: number;
+  numPages: number;
+}
+
+/**
+ * Query params for automation runs endpoint
+ */
+export interface AutomationRunsParams {
+  status?: string;
+  badge?: string;
+  date?: string;
+  limit?: number;
+  page?: number;
+  sort?: string;
+  sortDir?: 'asc' | 'desc';
+}
+
+/**
+ * Backfill/time-travel record
+ */
+export interface Backfill {
+  _id: string;
+  uuid: string;
+  automation: string;
+  trigger: string;
+  records_total: number;
+  records_complete: number;
+  status: 'ready' | 'running' | 'processing' | 'success' | 'complete' | 'paused' | 'halted' | 'failed';
+  searchParams?: {
+    total?: number;
+    start_date?: string;
+    end_date?: string;
+  };
+  next_query?: Record<string, unknown> | boolean;
+  eligible_for_continue?: boolean;
+  stopped_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  results?: Record<string, unknown>[];
+}
+
+/**
+ * Response from GET /admin/api/automations/{id}/backfills.json
+ */
+export interface BackfillStatusResponse {
+  trigger_id?: string;
+  backfill?: Backfill | null;
+  eligible?: boolean;
+  reason?: string;
+  error?: string;
+}
+
+/**
+ * Request body for POST /admin/api/automations/{id}/backfills.json
+ */
+export interface BackfillStartRequest {
+  total?: number;
+  start_date?: string;
+  end_date?: string;
+}
+
+/**
+ * Response from POST /admin/api/automations/{id}/backfills.json
+ */
+export interface BackfillStartResponse {
+  trigger_id?: string;
+  backfill?: Backfill;
+  success?: boolean;
+  error?: string;
+}
+
+// =============================================================================
+// Workflow Command Option Types
+// =============================================================================
+
+/**
+ * Options for workflow list command
+ */
+export interface WorkflowListOptions extends GlobalOptions {
+  json?: boolean;
+  limit?: number;
+  page?: number;
+  search?: string;
+  sort?: 'name' | 'updated_at' | 'created_at';
+  sortDir?: 'asc' | 'desc';
+}
+
+/**
+ * Options for workflow activity command
+ */
+export interface WorkflowActivityOptions extends GlobalOptions {
+  workflowId?: string;
+  json?: boolean;
+  limit?: number;
+  page?: number;
+  status?: string;
+  badge?: string;
+}
+
+/**
+ * Options for workflow time-travel command
+ */
+export interface WorkflowTimeTravelOptions extends GlobalOptions {
+  workflowId?: string;
+  json?: boolean;
+  from?: string;
+  to?: string;
+  limit?: number;
+  import?: boolean;
+  importIds?: string;
+  yes?: boolean;
+}
+
+/**
+ * Options for workflow enable/disable commands
+ */
+export interface WorkflowEnableDisableOptions extends GlobalOptions {
+  workflowId?: string;
+  json?: boolean;
+  yes?: boolean;
+  quiet?: boolean;
+}
+
+/**
+ * Request body for POST /admin/{uuid}/automations/{id}/settings.json
+ */
+export interface AutomationSettingsRequest {
+  enabled?: boolean;
+  name?: string;
+  description?: string;
+  logging?: boolean;
+  debug?: boolean;
+}
+
+/**
+ * Response from POST /admin/{uuid}/automations/{id}/settings.json
+ */
+export interface AutomationSettingsResponse {
+  enabled?: boolean;
+  name?: string;
+  description?: string;
+  did_complete?: boolean;
+  [key: string]: unknown;
+}
+
+// =============================================================================
+// Workflow Test Types
+// =============================================================================
+
+/** Payload record from connector test fixtures */
+export interface TestPayloadRecord {
+  id: string;
+  label: string;
+  date: string;
+}
+
+/** Payload record from previous task runs */
+export interface TestPayloadTask {
+  id: string;
+  task_id: string;
+  label: string;
+  date: string;
+}
+
+/** Response from GET /triggers/{type}/{id}/tests.json */
+export interface TestPayloadsResponse {
+  records?: TestPayloadRecord[];
+  tasks?: TestPayloadTask[];
+  description?: string;
+  error?: string;
+}
+
+/** Response from GET /triggers/{type}/{id}/test/{payloadId}.json */
+export interface TestPayloadResponse {
+  payload: unknown;
+  description?: string;
+  error?: string;
+}
+
+/** Saved test record summary */
+export interface TestRecordSummary {
+  _id: string;
+  name: string;
+  record_id?: string;
+  record_date?: string;
+  last_run?: string;
+  created_at?: string;
+}
+
+/** Response from GET /triggers/{type}/{id}/test-records.json */
+export interface TestRecordsResponse {
+  records: TestRecordSummary[];
+}
+
+/** Full test record with payload */
+export interface TestRecord {
+  _id: string;
+  uuid: string;
+  automation: string;
+  trigger: string;
+  name: string;
+  record_date?: string;
+  record_id?: string;
+  last_task?: string;
+  last_run?: string;
+  payload: unknown;
+  created_at?: string;
+}
+
+/** Response from POST /triggers/{type}/{id}/test.json */
+export interface WorkflowTestResponse {
+  task: {
+    id?: string;
+    mongo: string;
+    status?: string;
+  };
+  test_record: TestRecord;
+  automation?: {
+    did_complete?: boolean;
+  };
+  error?: string;
+}
+
+/** Response from POST /triggers/{type}/{id}/test-step.json */
+export interface StepTestResponse {
+  task: {
+    id?: string;
+    mongo: string;
+    status?: string;
+    run_task_id?: string;
+  };
+  test_record: TestRecord;
+  error?: string;
+}
+
+/** Task details from queue endpoint */
+export interface TaskDetails {
+  _id: string;
+  status: 'ready' | 'running' | 'success' | 'fail' | 'pause' | 'skip';
+  trigger_name?: string;
+  trigger_key?: string;
+  trigger_type?: 'input' | 'output';
+  created_at?: string;
+  updated_at?: string;
+  duration?: number;
+  error?: string;
+}
+
+/** Response from GET /queue/task/{id}.json */
+export interface TaskDetailsResponse {
+  task: TaskDetails;
+  payload?: unknown;
+  request?: unknown;
+  response?: unknown;
+}
+
+/** Response from GET /queue/run/{id}.json */
+export interface RunDetailsResponse {
+  run: AutomationRun;
+  tasks: TaskDetails[];
+  page?: number;
+  numPages?: number;
+}
+
+/** Test execution result */
+export interface TestResult {
+  success: boolean;
+  executionId: string;
+  runId?: string;
+  duration: number;
+  steps: StepResult[];
+  error?: string;
+}
+
+/** Individual step result */
+export interface StepResult {
+  stepKey: string;
+  name: string;
+  status: 'success' | 'fail' | 'skip' | 'pending' | 'running';
+  duration?: number;
+  taskId?: string;
+  error?: string;
+}
+
+/** Options for workflow test command */
+export interface WorkflowTestOptions extends GlobalOptions {
+  workflowId?: string;
+  payload?: string;
+  payloadId?: string;
+  json?: boolean;
+  nonInteractive?: boolean;
+  timeout?: number;
+}
+
+/** Options for step test command */
+export interface StepTestOptions extends GlobalOptions {
+  workflowId?: string;
+  stepId?: string;
+  payload?: string;
+  fromExecution?: string;
+  fromPayloadId?: string;
+  json?: boolean;
+  nonInteractive?: boolean;
+  timeout?: number;
+}
