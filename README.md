@@ -165,6 +165,141 @@ Replay a previously executed task.
 mesa replay 507f1f77bcf86cd799439011
 ```
 
+### `mesa workflow list`
+
+List all workflows in your MESA account.
+
+```bash
+mesa workflow list                          # Table output
+mesa workflow list --json                   # JSON output
+mesa workflow list --search "order"         # Filter by name/key
+mesa workflow list --limit 10 --page 2      # Pagination
+mesa workflow list --sort updated_at --sort-dir desc  # Sort results
+```
+
+| Option | Description |
+|--------|-------------|
+| `--json` | Output as JSON |
+| `--limit <n>` | Maximum results per page (default: 50) |
+| `--page <n>` | Page number (1-based) |
+| `--search <term>` | Filter by name or key |
+| `--sort <field>` | Sort by: `name`, `updated_at`, `created_at` |
+| `--sort-dir <dir>` | Sort direction: `asc`, `desc` |
+
+### `mesa workflow enable`
+
+Enable a workflow.
+
+```bash
+mesa workflow enable                        # Interactive picker
+mesa workflow enable --workflow-id <id>     # Specific workflow by ID
+mesa workflow enable --json                 # JSON output
+```
+
+### `mesa workflow disable`
+
+Disable a workflow.
+
+```bash
+mesa workflow disable                       # Interactive picker
+mesa workflow disable --workflow-id <id>    # Specific workflow
+mesa workflow disable --workflow-id <id> --yes  # Skip confirmation (CI mode)
+```
+
+### `mesa workflow test`
+
+Run a full workflow test execution.
+
+```bash
+mesa workflow test                          # Interactive: pick workflow & payload
+mesa workflow test <workflowId>             # Test specific workflow
+mesa workflow test --workflow-id <id>       # Alternative syntax
+mesa workflow test <id> --payload ./data.json  # Custom payload from file
+mesa workflow test <id> --default-payload   # Use empty payload (skip picker)
+mesa workflow test <id> --non-interactive --json  # CI mode with JSON output
+mesa workflow test <id> --timeout 60000     # Custom timeout (ms)
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--workflow-id <id>` | Workflow ID or key | - |
+| `--payload <path>` | Path to JSON payload file | - |
+| `--default-payload` | Use empty payload | false |
+| `--json` | Output as JSON | false |
+| `--non-interactive` | CI mode (no prompts) | false |
+| `--timeout <ms>` | Test timeout | 300000 |
+
+**Exit codes**: 0 = success, 1 = failure
+
+### `mesa workflow step test`
+
+Run a step test (currently executes the full workflow).
+
+```bash
+mesa workflow step test <workflowId>
+mesa workflow step test <id> --payload ./data.json
+mesa workflow step test <id> --non-interactive --json
+```
+
+Options are the same as `workflow test`.
+
+### `mesa workflow activity`
+
+View recent workflow executions (runs).
+
+```bash
+mesa workflow activity                      # Interactive picker
+mesa workflow activity --workflow-id <id>   # Specific workflow
+mesa workflow activity --status fail        # Filter by status
+mesa workflow activity --badge test         # Filter by badge
+mesa workflow activity --limit 10 --page 2  # Pagination
+mesa workflow activity --json               # JSON output
+```
+
+| Option | Description |
+|--------|-------------|
+| `--workflow-id <id>` | Workflow ID |
+| `--status <status>` | Filter: `ready`, `running`, `success`, `fail`, `pause`, `skip` |
+| `--badge <badge>` | Filter: `test`, `replay`, `backfill`, `delayed` |
+| `--limit <n>` | Results per page (default: 25) |
+| `--page <n>` | Page number (1-based) |
+| `--json` | Output as JSON |
+
+### `mesa workflow debug enable|disable|status`
+
+Manage debug logging for workflows.
+
+```bash
+mesa workflow debug enable <workflowId>     # Enable debug logging
+mesa workflow debug disable <workflowId>    # Disable debug logging
+mesa workflow debug status                  # Show all workflows with debug enabled
+mesa workflow debug status <workflowId>     # Check specific workflow
+mesa workflow debug status --json           # JSON output
+```
+
+**Note**: Debug logs require both `debug=true` AND `logging=true` on the workflow.
+
+### `mesa workflow time-travel`
+
+Check status or start a backfill (time-travel) to re-run a workflow against historical data.
+
+```bash
+mesa workflow time-travel                   # Interactive: check status
+mesa workflow time-travel --workflow-id <id>  # Check status for specific workflow
+mesa workflow time-travel --workflow-id <id> --from 2024-01-01 --to 2024-01-31  # Start backfill
+mesa workflow time-travel --workflow-id <id> --from 2024-01-01 --limit 100  # Limit records
+mesa workflow time-travel --workflow-id <id> --from 2024-01-01 --yes  # Skip confirmation
+```
+
+| Option | Description |
+|--------|-------------|
+| `--workflow-id <id>` | Workflow ID |
+| `--from <date>` | Start date (YYYY-MM-DD) |
+| `--to <date>` | End date (YYYY-MM-DD) |
+| `--limit <n>` | Maximum records to process |
+| `--yes` | Skip confirmation |
+| `--json` | Output as JSON |
+
 ### `mesa workflow create`
 
 Create a new workflow automation interactively or from JSON input.
@@ -327,13 +462,25 @@ mesa-cli/
 │   ├── cli.ts              # Main CLI entry point
 │   ├── generate-fields.ts  # Field generator utility
 │   ├── commands/
-│   │   └── workflow/       # Workflow command
+│   │   └── workflow/       # Workflow commands
 │   │       ├── index.ts    # Command registration
-│   │       └── create.ts   # Create subcommand
+│   │       ├── create.ts   # Create subcommand
+│   │       ├── list.ts     # List workflows
+│   │       ├── enable.ts   # Enable workflow
+│   │       ├── disable.ts  # Disable workflow
+│   │       ├── test.ts     # Run workflow test
+│   │       ├── step-test.ts    # Run step test
+│   │       ├── activity.ts     # View workflow activity
+│   │       ├── debug.ts        # Debug logging commands
+│   │       └── time-travel.ts  # Backfill commands
 │   ├── lib/
 │   │   ├── automation.ts   # Automation helpers
 │   │   ├── client.ts       # HTTP client
 │   │   ├── config.ts       # Config loading
+│   │   ├── table.ts        # Table formatting utilities
+│   │   ├── workflow-picker.ts   # Interactive workflow selection
+│   │   ├── test-picker.ts       # Test payload selection
+│   │   ├── test-runner.ts       # Test execution & polling
 │   │   └── workflow/       # Workflow builder modules
 │   │       ├── trigger-registry.ts  # App/trigger search
 │   │       ├── step-builder.ts      # Step configuration
