@@ -25,6 +25,22 @@ import type {
   AppConfig,
   MesaAutomation,
   SecretEntry,
+  AdminAutomationsListResponse,
+  AutomationRunsResponse,
+  AutomationRunsParams,
+  BackfillStatusResponse,
+  BackfillStartRequest,
+  BackfillStartResponse,
+  AutomationSettingsRequest,
+  AutomationSettingsResponse,
+  TestPayloadsResponse,
+  TestPayloadResponse,
+  TestRecordsResponse,
+  TestRecord,
+  WorkflowTestResponse,
+  StepTestResponse,
+  TaskDetailsResponse,
+  RunDetailsResponse,
 } from '../types/index.js';
 import { isApiError } from '../types/index.js';
 import { getApiUrl } from './config.js';
@@ -376,6 +392,338 @@ export class MesaClient {
       // If API doesn't support secrets endpoint, return empty array
       return [];
     }
+  }
+
+  // =========================================================================
+  // Admin API Operations (Workflow List/Activity/Time-Travel)
+  // =========================================================================
+
+  /**
+   * Make an Admin API request with query params support
+   */
+  private async adminRequest<T>(
+    method: HttpMethod,
+    endpoint: string,
+    data?: Record<string, unknown>,
+    params?: Record<string, string | number | undefined>
+  ): Promise<T> {
+    // Clean undefined params
+    const cleanParams: Record<string, string> = {};
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined) {
+          cleanParams[key] = String(value);
+        }
+      }
+    }
+
+    // Use the same base URL pattern as regular requests
+    const url = `${this.baseUrl}/${this.uuid}/${endpoint}`;
+
+    const config: AxiosRequestConfig = {
+      method,
+      url,
+      headers: {
+        'X-Api-Key': this.apiKey,
+        'Content-Type': 'application/json',
+      },
+      params: cleanParams,
+    };
+
+    if (method !== 'GET' && data) {
+      config.data = data;
+    }
+
+    if (this.verbose) {
+      console.log(`[API] ${method} ${url}`);
+      if (Object.keys(cleanParams).length > 0) {
+        console.log('[API] Query params:', cleanParams);
+      }
+      if (data) {
+        console.log('[API] Request body:', JSON.stringify(data, null, 2));
+      }
+    }
+
+    try {
+      const response: AxiosResponse<T> = await axios(config);
+
+      if (this.verbose) {
+        console.log(`[API] Response status: ${response.status}`);
+      }
+
+      return response.data;
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const statusCode = error.response?.status ?? 500;
+        const responseData: unknown = error.response?.data;
+
+        let apiError: ApiErrorResponse;
+        if (isApiError(responseData)) {
+          apiError = responseData;
+        } else {
+          apiError = {
+            error: error.message,
+            status: statusCode,
+          };
+        }
+
+        if (this.verbose) {
+          console.error(`[API] Error: ${statusCode}`, apiError);
+        }
+
+        throw new ApiError(
+          apiError.error ?? apiError.message ?? 'API request failed',
+          statusCode,
+          apiError
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * List all automations (with detailed info including triggers)
+   * Uses the same endpoint as existing listAutomations but returns full AdminAutomation type
+   */
+  async listAdminAutomations(): Promise<AdminAutomationsListResponse> {
+    return this.adminRequest<AdminAutomationsListResponse>('GET', 'automations.json');
+  }
+
+  /**
+   * Test an automation (workflow) via the CLI API
+   * POST /api/admin/{uuid}/automations/{key}/test.json
+   * This is a simpler endpoint that handles trigger resolution internally
+   */
+  async testAutomationByKey(
+    automationKey: string,
+    payload?: unknown
+  ): Promise<{ task: { id: string; run_task_id?: string } }> {
+    return this.adminRequest<{ task: { id: string; run_task_id?: string } }>(
+      'POST',
+      `automations/${automationKey}/test.json`,
+      payload ? { payload } : undefined
+    );
+  }
+
+  /**
+   * Get automation runs (activity) for a specific automation
+   * Endpoint: GET /automations/{id}/queue.json
+   */
+  async getAutomationRuns(
+    automationId: string,
+    params?: AutomationRunsParams
+  ): Promise<AutomationRunsResponse> {
+    return this.adminRequest<AutomationRunsResponse>(
+      'GET',
+      `automations/${automationId}/queue.json`,
+      undefined,
+      params as Record<string, string | number | undefined>
+    );
+  }
+
+  /**
+   * Get backfill status for an automation
+   * Endpoint: GET /automations/{id}/backfills.json
+   */
+  async getBackfillStatus(automationId: string): Promise<BackfillStatusResponse> {
+    return this.adminRequest<BackfillStatusResponse>(
+      'GET',
+      `automations/${automationId}/backfills.json`
+    );
+  }
+
+  /**
+   * Start a backfill for an automation
+   * Endpoint: POST /automations/{id}/backfills.json
+   */
+  async startBackfill(
+    automationId: string,
+    request: BackfillStartRequest
+  ): Promise<BackfillStartResponse> {
+    return this.adminRequest<BackfillStartResponse>(
+      'POST',
+      `automations/${automationId}/backfills.json`,
+      request as Record<string, unknown>
+    );
+  }
+
+  /**
+   * Update automation settings (enable/disable, name, etc)
+   * Endpoint: POST /automations/{id}/settings.json
+   */
+  async updateAutomationSettings(
+    automationId: string,
+    settings: AutomationSettingsRequest
+  ): Promise<AutomationSettingsResponse> {
+    return this.adminRequest<AutomationSettingsResponse>(
+      'POST',
+      `automations/${automationId}/settings.json`,
+      settings as Record<string, unknown>
+    );
+  }
+
+  // =========================================================================
+  // Test Operations
+  // =========================================================================
+
+  /**
+   * List available test payloads for a trigger
+   * GET /triggers/{type}/{triggerId}/tests.json
+   */
+  async getTestPayloads(
+    triggerType: 'input' | 'output',
+    triggerId: string,
+    search?: string
+  ): Promise<TestPayloadsResponse> {
+    return this.adminRequest<TestPayloadsResponse>(
+      'GET',
+      `triggers/${triggerType}/${triggerId}/tests.json`,
+      undefined,
+      search ? { search } : undefined
+    );
+  }
+
+  /**
+   * Get a specific test payload
+   * GET /triggers/{type}/{triggerId}/test/{payloadId}.json
+   */
+  async getTestPayload(
+    triggerType: 'input' | 'output',
+    triggerId: string,
+    payloadId: string,
+    idType: 'connector' | 'task'
+  ): Promise<TestPayloadResponse> {
+    return this.adminRequest<TestPayloadResponse>(
+      'GET',
+      `triggers/${triggerType}/${triggerId}/test/${payloadId}.json`,
+      undefined,
+      { id_type: idType }
+    );
+  }
+
+  /**
+   * List saved test records for a trigger
+   * GET /triggers/{type}/{triggerId}/test-records.json
+   */
+  async getTestRecords(
+    triggerType: 'input' | 'output',
+    triggerId: string
+  ): Promise<TestRecordsResponse> {
+    return this.adminRequest<TestRecordsResponse>(
+      'GET',
+      `triggers/${triggerType}/${triggerId}/test-records.json`
+    );
+  }
+
+  /**
+   * Get a specific saved test record with payload
+   * GET /triggers/{type}/{triggerId}/test-records/{testRecordId}.json
+   */
+  async getTestRecord(
+    triggerType: 'input' | 'output',
+    triggerId: string,
+    testRecordId: string
+  ): Promise<TestRecord> {
+    return this.adminRequest<TestRecord>(
+      'GET',
+      `triggers/${triggerType}/${triggerId}/test-records/${testRecordId}.json`
+    );
+  }
+
+  /**
+   * Execute a workflow test (full workflow from input trigger)
+   * POST /triggers/{type}/{triggerId}/test.json
+   */
+  async executeWorkflowTest(
+    triggerType: 'input' | 'output',
+    triggerId: string,
+    options: {
+      payload: unknown;
+      testRecordId?: string;
+      record?: { name?: string; id?: string; label?: string; date?: string };
+    }
+  ): Promise<WorkflowTestResponse> {
+    return this.adminRequest<WorkflowTestResponse>(
+      'POST',
+      `triggers/${triggerType}/${triggerId}/test.json`,
+      {
+        payload: options.payload,
+        test_record_id: options.testRecordId,
+        record: options.record,
+      }
+    );
+  }
+
+  /**
+   * Execute a single step test
+   * POST /triggers/{type}/{triggerId}/test-step.json
+   */
+  async executeStepTest(
+    triggerType: 'input' | 'output',
+    triggerId: string,
+    testRecordId: string,
+    payload?: unknown
+  ): Promise<StepTestResponse> {
+    return this.adminRequest<StepTestResponse>(
+      'POST',
+      `triggers/${triggerType}/${triggerId}/test-step.json`,
+      {
+        test_record_id: testRecordId,
+        payload,
+      }
+    );
+  }
+
+  /**
+   * Get task details including payload
+   * GET /queue/task/{taskId}.json
+   * Note: The backend returns the task directly, so we wrap it in the expected format.
+   */
+  async getTaskDetails(taskId: string): Promise<TaskDetailsResponse> {
+    // Backend returns task data directly (not wrapped in { task: ... })
+    const response = await this.adminRequest<Record<string, unknown>>(
+      'GET',
+      `queue/task/${taskId}.json`
+    );
+
+    // Wrap in expected format if necessary
+    if ('task' in response) {
+      return response as unknown as TaskDetailsResponse;
+    }
+
+    // Extract relevant fields and wrap
+    return {
+      task: {
+        _id: response._id as string,
+        status: response.status as TaskDetailsResponse['task']['status'],
+        trigger_name: response.trigger_name as string | undefined,
+        trigger_key: response.trigger_key as string | undefined,
+        created_at: response.created_at as string | undefined,
+        updated_at: response.updated_at as string | undefined,
+        duration: response.execution_time as number | undefined,
+        error: response.message as string | undefined,
+      },
+      payload: response.payload,
+      request: response.request,
+      response: response.response,
+    };
+  }
+
+  /**
+   * Get run details with all tasks
+   * GET /queue/run/{runId}.json
+   */
+  async getRunDetails(
+    runId: string,
+    options?: { page?: number }
+  ): Promise<RunDetailsResponse> {
+    return this.adminRequest<RunDetailsResponse>(
+      'GET',
+      `queue/run/${runId}.json`,
+      undefined,
+      options as Record<string, string | number | undefined>
+    );
   }
 }
 

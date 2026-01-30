@@ -1059,6 +1059,9 @@ export interface TaskDetails {
   updated_at?: string;
   duration?: number;
   error?: string;
+  message?: string;
+  details?: string;
+  response?: { status?: string; code?: number; message?: string };
 }
 
 /** Response from GET /queue/task/{id}.json */
@@ -1085,6 +1088,7 @@ export interface TestResult {
   duration: number;
   steps: StepResult[];
   error?: string;
+  logs?: LogEntry[];
 }
 
 /** Individual step result */
@@ -1095,6 +1099,7 @@ export interface StepResult {
   duration?: number;
   taskId?: string;
   error?: string;
+  details?: string;
 }
 
 /** Options for workflow test command */
@@ -1102,6 +1107,7 @@ export interface WorkflowTestOptions extends GlobalOptions {
   workflowId?: string;
   payload?: string;
   payloadId?: string;
+  defaultPayload?: boolean;
   json?: boolean;
   nonInteractive?: boolean;
   timeout?: number;

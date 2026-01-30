@@ -463,6 +463,35 @@ export async function buildStepFromInput(
   // Use operation fields if available, fallback to app fields
   const stepFields = operation.fields ?? appConfig.fields;
 
+  // Auto-select secrets for non-interactive mode
+  const fieldValues: Record<string, unknown> = { ...(stepInput.fields ?? {}) };
+
+  // Find secret fields that need auto-selection
+  const secretFields = stepFields.filter(
+    (f: TriggerField) => f.type === 'secret' && f.secret_type && !fieldValues[f.key]
+  );
+
+  for (const field of secretFields) {
+    // For OAuth secrets, use the app/connector key to find secrets
+    const secretType = field.secret_type;
+    if (!secretType) continue;
+
+    const secretLookupKey = secretType === 'oauth' ? stepInput.app : secretType;
+    try {
+      const secrets = await registry.getSecrets(secretLookupKey);
+      if (secrets.length > 0) {
+        // Auto-select the default secret, or the first one
+        const defaultSecret = secrets.find((s) => s.is_default) || secrets[0];
+        fieldValues[field.key] = defaultSecret._id;
+        console.log(`Using ${field.label || secretLookupKey} connection: ${defaultSecret.name}`);
+      } else {
+        console.log(`Note: No ${field.label || secretLookupKey} connection configured.`);
+      }
+    } catch {
+      // Silently continue if secrets endpoint fails
+    }
+  }
+
   return {
     key: stepKey,
     name: `${appConfig.name} - ${operation.title}`,
@@ -474,7 +503,7 @@ export async function buildStepFromInput(
     operation_id: operation.operation_id,
     metadata: operation.metadata ?? {},
     fields: stepFields,
-    field_values: stepInput.fields ?? {},
+    field_values: fieldValues,
     response_example: operation.response_example as Record<string, unknown> | undefined,
     requires_oauth: registry.requiresOAuth(appConfig),
   };
