@@ -502,7 +502,7 @@ export class MesaClient {
     return this.adminRequest<{ task: { id: string; run_task_id?: string } }>(
       'POST',
       `automations/${automationKey}/test.json`,
-      payload ? { payload } : undefined
+      payload !== undefined ? { payload } as Record<string, unknown> : undefined
     );
   }
 

@@ -80,9 +80,12 @@ export async function pollTestCompletion(
           }
 
           // Check if run is complete (normalize status to lowercase for comparison)
+          // The API returns display-mapped values via mapQueue(): 'success' → 'Complete', 'fail' → 'Fail', etc.
+          // We check for both raw DB values and mapped display values.
           const runStatus = runDetails.run.status.toLowerCase();
-          if (['success', 'fail', 'pause'].includes(runStatus)) {
-            const success = runStatus === 'success';
+          const terminalStatuses = ['success', 'complete', 'fail', 'pause', 'stop', 'stopped', 'skip'];
+          if (terminalStatuses.includes(runStatus)) {
+            const success = runStatus === 'success' || runStatus === 'complete';
             if (spinner) {
               if (success) {
                 spinner.succeed('Test completed successfully');
@@ -125,8 +128,8 @@ export async function pollTestCompletion(
             }
           }
 
-          if (['success', 'fail', 'skip', 'pause'].includes(task.status)) {
-            const success = task.status === 'success';
+          if (['success', 'complete', 'fail', 'skip', 'pause', 'stop', 'stopped'].includes(task.status.toLowerCase())) {
+            const success = task.status.toLowerCase() === 'success' || task.status.toLowerCase() === 'complete';
             if (spinner) {
               if (success) {
                 spinner.succeed(`Step ${task.status}`);

@@ -65,7 +65,8 @@ function getOptions(
     workflowId:
       workflowIdArg ||
       (typeof opts.workflowId === 'string' ? opts.workflowId : undefined),
-    payload: typeof opts.payload === 'string' ? opts.payload : undefined,
+    payload: typeof opts.payload === 'string' ? opts.payload
+      : (typeof globals.payload === 'string' ? globals.payload : undefined),
     defaultPayload: Boolean(opts.defaultPayload),
     json: Boolean(opts.json),
     nonInteractive: Boolean(opts.nonInteractive),
