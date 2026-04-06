@@ -42,7 +42,7 @@ import type {
   TaskDetailsResponse,
   RunDetailsResponse,
 } from '../types/index.js';
-import { isApiError } from '../types/index.js';
+import { isApiError, extractApiErrorMessage } from '../types/index.js';
 import { getApiUrl } from './config.js';
 
 /**
@@ -149,7 +149,7 @@ export class MesaClient {
         }
 
         throw new ApiError(
-          apiError.error ?? apiError.message ?? 'API request failed',
+          extractApiErrorMessage(apiError) ?? 'API request failed',
           statusCode,
           apiError
         );
@@ -340,7 +340,7 @@ export class MesaClient {
         }
 
         throw new ApiError(
-          apiError.error ?? apiError.message ?? 'CLI API request failed',
+          extractApiErrorMessage(apiError) ?? 'CLI API request failed',
           statusCode,
           apiError
         );
@@ -472,7 +472,7 @@ export class MesaClient {
         }
 
         throw new ApiError(
-          apiError.error ?? apiError.message ?? 'API request failed',
+          extractApiErrorMessage(apiError) ?? 'API request failed',
           statusCode,
           apiError
         );
@@ -773,7 +773,7 @@ export class AuthClient {
         }
 
         throw new ApiError(
-          apiError.error ?? apiError.message ?? 'Auth request failed',
+          extractApiErrorMessage(apiError) ?? 'Auth request failed',
           statusCode,
           apiError
         );
@@ -814,7 +814,7 @@ export class AuthClient {
         }
 
         throw new ApiError(
-          apiError.error ?? apiError.message ?? 'Status check failed',
+          extractApiErrorMessage(apiError) ?? 'Status check failed',
           statusCode,
           apiError
         );

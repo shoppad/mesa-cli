@@ -362,9 +362,27 @@ export interface RequestOptions {
  * Error response from MESA API
  */
 export interface ApiErrorResponse {
-  error?: string;
+  // The Mesa server can return errors in two shapes:
+  //   { error: "message string" }  — flat string
+  //   { error: { message: "...", code: 405 } }  — nested object (most common)
+  // Use extractApiErrorMessage() to read the actual text from either shape.
+  error?: string | { message?: string; code?: number };
   message?: string;
   status?: number;
+}
+
+/**
+ * Pulls a human-readable string out of an ApiErrorResponse, regardless of
+ * whether the server returned `error` as a string or a nested object.
+ */
+export function extractApiErrorMessage(response: ApiErrorResponse): string | undefined {
+  if (typeof response.error === 'string') {
+    return response.error;
+  }
+  if (response.error && typeof response.error === 'object' && typeof response.error.message === 'string') {
+    return response.error.message;
+  }
+  return response.message;
 }
 
 // =============================================================================
