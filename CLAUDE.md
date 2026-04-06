@@ -523,7 +523,10 @@ npm run cli -- workflow test <WORKFLOW_ID> --payload ./test-payload.json
 #### Non-Interactive Mode (CI-friendly)
 
 ```bash
-# Requires --payload, exits with code 0 (success) or 1 (failure)
+# Auto-uses the latest saved test record if one exists for the trigger
+npm run cli -- workflow test <WORKFLOW_ID> --non-interactive --json
+
+# With explicit payload file (overrides test record)
 npm run cli -- workflow test <WORKFLOW_ID> --payload ./payload.json --non-interactive
 
 # With JSON output for parsing
@@ -533,11 +536,20 @@ npm run cli -- workflow test <WORKFLOW_ID> --payload ./payload.json --non-intera
 npm run cli -- workflow test <WORKFLOW_ID> --payload ./payload.json --non-interactive --timeout 60000
 ```
 
+**Payload precedence (non-interactive mode):**
+1. `--payload <file>` — explicit custom payload (highest priority)
+2. **Latest saved test record** — auto-fetched if any exist (sorted by `last_run` desc)
+3. `--default-payload` — forces trigger's hardcoded example, skips test records
+4. None of the above + no records — server uses trigger example
+
+When a test record is auto-selected, the output shows `Payload: Test Record: <name>`. This is the recommended default for AI agents and CI: real captured payloads are more accurate than synthetic ones.
+
 **Options**:
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--workflow-id <id>` | Workflow ID or key | - |
-| `--payload <path>` | Path to JSON payload file | - |
+| `--payload <path>` | Path to JSON payload file (overrides test record) | - |
+| `--default-payload` | Skip test records, use trigger's hardcoded example | false |
 | `--json` | Output as JSON | false |
 | `--non-interactive` | CI mode (no prompts) | false |
 | `--timeout <ms>` | Test timeout in milliseconds | 300000 |

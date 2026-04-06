@@ -165,6 +165,34 @@ async function runTestCommand(options: WorkflowTestOptions): Promise<number> {
       }
       return 1;
     }
+  } else if (!options.defaultPayload && (options.nonInteractive || !isInteractive() || options.json)) {
+    // Non-interactive mode: auto-use the latest saved test record if one exists.
+    // The server returns records sorted by last_run desc, then created_at desc.
+    // Falls back to no payload (server uses trigger example) if no records exist.
+    const inputTrigger = automation.triggers?.find(
+      (t) => t.trigger_type === 'input'
+    );
+    if (inputTrigger) {
+      try {
+        const recordsResponse = await client.getTestRecords(
+          inputTrigger.trigger_type,
+          inputTrigger._id
+        );
+        const records = recordsResponse.records || [];
+        if (records.length > 0) {
+          const latest = records[0];
+          const fullRecord = await client.getTestRecord(
+            inputTrigger.trigger_type,
+            inputTrigger._id,
+            latest._id
+          );
+          payload = fullRecord.payload;
+          payloadSource = `Test Record: ${latest.name}`;
+        }
+      } catch {
+        // Silently fall through — server will use the trigger's example payload
+      }
+    }
   } else if (!options.defaultPayload && !options.nonInteractive && isInteractive() && !options.json) {
     // Interactive mode: show payload picker
     // Find the input trigger for this workflow
