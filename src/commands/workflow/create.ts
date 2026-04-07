@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import type { GlobalOptions, MesaAutomation, WorkflowCreateOptions } from '../../types/index.js';
 import { loadConfig, ConfigError } from '../../lib/config.js';
 import { MesaClient, ApiError } from '../../lib/client.js';
+import { buildAutomationUrl } from '../../lib/automation.js';
 import {
   TriggerRegistryService,
   WorkflowBuilder,
@@ -121,25 +122,6 @@ function getClient(options: GlobalOptions): { client: MesaClient; uuid: string; 
   });
 
   return { client, uuid: loaded.config.uuid, apiUrl: loaded.config.api_url, verbose: options.verbose ?? false };
-}
-
-/**
- * Build the automation URL based on config
- * Uses api_url from config to determine the base URL
- * Format: https://{baseUrl}/automations/{automationId}/builder
- */
-function buildAutomationUrl(apiUrl: string | undefined, uuid: string, automationId: string): string {
-  if (apiUrl) {
-    // Extract base URL from api_url (e.g., https://dev-mesa.theshoppad.com/api/admin -> https://dev-mesa.theshoppad.com)
-    const baseUrl = apiUrl
-      .replace(/\/api\/admin$/, '')
-      .replace(/\/v1\/admin$/, '')
-      .replace(/\/admin$/, '');
-    return `${baseUrl}/automations/${automationId}/builder`;
-  }
-
-  // Default to production MESA URL
-  return `https://${uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/automations/${automationId}`;
 }
 
 /**

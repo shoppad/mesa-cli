@@ -256,6 +256,7 @@ export interface AutomationResponse extends MesaAutomation {
 export interface TemplateInstallResponse {
   log: string;
   success?: boolean;
+  automation?: { _id: string; key?: string };
 }
 
 // =============================================================================

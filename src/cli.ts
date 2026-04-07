@@ -28,6 +28,7 @@ import {
   isMesaJsonFile,
   isScriptFile,
   discoverReferencedScripts,
+  buildAutomationUrl,
   AutomationError,
 } from './lib/automation.js';
 import { isObject } from './types/index.js';
@@ -387,7 +388,7 @@ program
     const options = getGlobalOptions(cmd);
 
     try {
-      const { client } = getClientFromOptions(options);
+      const { config, client } = getClientFromOptions(options);
 
       console.log(`Installing template: ${template}`);
 
@@ -395,6 +396,15 @@ program
 
       console.log(`Installed ${template}. Log:`);
       console.log(response.log);
+
+      // Show automation URL — collections set _id to the literal 'collection'
+      // and don't have a single automation to link to, so skip those.
+      const automationId = response.automation?._id;
+      if (automationId && automationId !== 'collection') {
+        const automationUrl = buildAutomationUrl(config.api_url, config.uuid, automationId);
+        console.log('');
+        console.log(`View workflow: ${automationUrl}`);
+      }
     } catch (error) {
       handleError(error);
     }

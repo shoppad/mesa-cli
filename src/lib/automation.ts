@@ -200,6 +200,29 @@ export function discoverReferencedScripts(mesaJsonPath: string): string[] {
 }
 
 /**
+ * Build the URL to view an automation in the MESA dashboard.
+ *
+ * Uses api_url from config to determine the base URL:
+ * - Dev (api_url present): https://{baseUrl}/automations/{automationId}/builder
+ * - Prod (no api_url): https://{uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/automations/{automationId}
+ */
+export function buildAutomationUrl(
+  apiUrl: string | undefined,
+  uuid: string,
+  automationId: string
+): string {
+  if (apiUrl) {
+    const baseUrl = apiUrl
+      .replace(/\/api\/admin$/, '')
+      .replace(/\/v1\/admin$/, '')
+      .replace(/\/admin$/, '');
+    return `${baseUrl}/automations/${automationId}/builder`;
+  }
+
+  return `https://${uuid}.myshopify.com/admin/apps/mesa/apps/mesa/admin/shopify/automations/${automationId}`;
+}
+
+/**
  * Check if a file is a mesa.json file
  */
 export function isMesaJsonFile(filename: string): boolean {
