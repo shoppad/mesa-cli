@@ -174,10 +174,58 @@ function generateKey(name: string): string {
 }
 
 /**
+ * For schema 5 operations with OpenAPI, field values need to be nested under
+ * a 'body' key in metadata. This detects the body wrapper pattern and
+ * restructures flat field values accordingly.
+ */
+function wrapFieldValuesForBody(
+  fieldValues: Record<string, unknown>,
+  fields: import('../../types/index.js').TriggerField[]
+): Record<string, unknown> {
+  const bodyField = fields.find(
+    (f) => f.key === 'body' && f.type === 'object' && f.fields && f.fields.length > 0
+  );
+
+  if (!bodyField) {
+    // No body wrapper — schema 4 style, return flat values
+    return fieldValues;
+  }
+
+  // If user already provided a nested body object, pass through unchanged
+  if (fieldValues.body && typeof fieldValues.body === 'object' && !Array.isArray(fieldValues.body)) {
+    return fieldValues;
+  }
+
+  // Separate field values into body vs top-level
+  const bodyFieldKeys = new Set(
+    (bodyField.fields ?? []).map((f) => f.key)
+  );
+
+  const bodyValues: Record<string, unknown> = {};
+  const otherValues: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(fieldValues)) {
+    if (bodyFieldKeys.has(key)) {
+      bodyValues[key] = value;
+    } else {
+      otherValues[key] = value;
+    }
+  }
+
+  if (Object.keys(bodyValues).length > 0) {
+    return { ...otherValues, body: bodyValues };
+  }
+
+  return fieldValues;
+}
+
+/**
  * Convert WorkflowStep to AutomationStep for config.inputs/outputs format
  * This is the format expected by the MESA import API
  */
 function stepToConfigStep(step: WorkflowStep, weight: number): AutomationStep {
+  const fieldValues = wrapFieldValuesForBody(step.field_values, step.fields);
+
   return {
     key: step.key,
     name: step.name,
@@ -185,10 +233,12 @@ function stepToConfigStep(step: WorkflowStep, weight: number): AutomationStep {
     trigger_type: step.type === 'trigger' ? 'input' : 'output',
     // type is the connector/app key (e.g., 'shopify', 'email')
     type: step.app_key,
+    // Include version so the backend loads the correct versioned config (e.g., email/v2 not email/v1)
+    version: step.version,
     operation_id: step.operation_id,
     metadata: {
       ...step.metadata,
-      ...step.field_values,
+      ...fieldValues,
     },
     weight,
   };
