@@ -27,6 +27,7 @@ import {
   readMesaJsonWithReadme,
   isMesaJsonFile,
   isScriptFile,
+  discoverReferencedScripts,
   AutomationError,
 } from './lib/automation.js';
 import { isObject } from './types/index.js';
@@ -202,6 +203,14 @@ program
       if (mesaJsonFile) {
         // Get automation key from mesa.json or option
         const automationKey = getAutomationKey(options.automation, mesaJsonFile, cwd);
+
+        // Auto-discover script files referenced from mesa.json's
+        // metadata.script fields so `mesa push mesa.json` syncs script edits
+        // without requiring the user to list each .js file explicitly.
+        const discovered = discoverReferencedScripts(mesaJsonFile);
+        for (const f of discovered) {
+          if (!scriptFiles.includes(f)) scriptFiles.push(f);
+        }
 
         // First upload mesa.json to create/update the automation
         await uploadFile(client, mesaJsonFile, automationKey, force);

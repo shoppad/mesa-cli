@@ -154,6 +154,52 @@ export function readMesaJsonWithReadme(
 }
 
 /**
+ * Discover script files referenced from mesa.json's
+ * config.{inputs,outputs}[*].metadata.script and resolve them to absolute paths
+ * relative to the directory containing mesa.json.
+ *
+ * Missing files are warned about and skipped, not thrown — this lets push
+ * succeed when a workflow has not-yet-uploaded script references.
+ */
+export function discoverReferencedScripts(mesaJsonPath: string): string[] {
+  const mesa = readMesaJsonWithReadme(mesaJsonPath);
+  if (!mesa || !isObject(mesa.config)) {
+    return [];
+  }
+
+  const dir = dirname(mesaJsonPath);
+  const filenames = new Set<string>();
+
+  for (const triggerType of ['inputs', 'outputs'] as const) {
+    const triggers = mesa.config[triggerType];
+    if (!Array.isArray(triggers)) continue;
+    for (const trigger of triggers) {
+      if (!isObject(trigger)) continue;
+      const metadata = trigger.metadata;
+      if (!isObject(metadata)) continue;
+      const script = metadata.script;
+      if (typeof script === 'string' && script.length > 0) {
+        filenames.add(script);
+      }
+    }
+  }
+
+  const resolved: string[] = [];
+  for (const filename of filenames) {
+    const filepath = join(dir, filename);
+    if (existsSync(filepath)) {
+      resolved.push(filepath);
+    } else {
+      console.warn(
+        `Warning: script "${filename}" referenced in mesa.json but not found on disk; skipping.`
+      );
+    }
+  }
+
+  return resolved;
+}
+
+/**
  * Check if a file is a mesa.json file
  */
 export function isMesaJsonFile(filename: string): boolean {
