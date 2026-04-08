@@ -19,6 +19,7 @@ import type {
 } from '../../types/index.js';
 import { loadConfig, ConfigError } from '../../lib/config.js';
 import { MesaClient, ApiError } from '../../lib/client.js';
+import { buildAutomationUrl } from '../../lib/automation.js';
 import { pickWorkflow, isInteractive } from '../../lib/workflow-picker.js';
 
 /**
@@ -55,7 +56,10 @@ function getOptions(opts: Record<string, unknown>, cmd: Command): WorkflowEnable
   };
 }
 
-function getClient(options: GlobalOptions, jsonOutput?: boolean): MesaClient {
+function getClient(
+  options: GlobalOptions,
+  jsonOutput?: boolean
+): { client: MesaClient; uuid: string; apiUrl: string | undefined } {
   const cwd = process.cwd();
   const loaded = loadConfig(cwd, options.env);
 
@@ -65,14 +69,16 @@ function getClient(options: GlobalOptions, jsonOutput?: boolean): MesaClient {
     console.log('');
   }
 
-  return new MesaClient({
+  const client = new MesaClient({
     config: loaded.config,
     verbose: options.verbose,
   });
+
+  return { client, uuid: loaded.config.uuid, apiUrl: loaded.config.api_url };
 }
 
 async function runDisableCommand(options: WorkflowEnableDisableOptions): Promise<void> {
-  const client = getClient(options, options.json);
+  const { client, uuid, apiUrl } = getClient(options, options.json);
 
   // Determine workflow ID
   let workflowId = options.workflowId;
@@ -174,6 +180,8 @@ async function runDisableCommand(options: WorkflowEnableDisableOptions): Promise
     }));
   } else if (!options.quiet) {
     console.log(`Successfully disabled workflow "${selectedAutomation.name}" (${selectedAutomation._id})`);
+    console.log('');
+    console.log(`View workflow: ${buildAutomationUrl(apiUrl, uuid, selectedAutomation._id)}`);
   }
 }
 

@@ -19,7 +19,7 @@ import { Command } from 'commander';
 import { readFileSync, writeFileSync, existsSync, lstatSync, mkdirSync, watch as fsWatch } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { search } from '@inquirer/prompts';
-import type { GlobalOptions, MesaConfig } from './types/index.js';
+import type { GlobalOptions, MesaConfig, AutomationImportResponse } from './types/index.js';
 import { loadConfig, ConfigError, saveCredentials, hasCredentials, clearCredentials, getCredentialsPath } from './lib/config.js';
 import { MesaClient, ApiError, AuthClient, getAuthBaseUrl } from './lib/client.js';
 import {
@@ -128,15 +128,22 @@ function sleep(ms: number): Promise<void> {
 // Push Command
 // =============================================================================
 
+/**
+ * Upload a single file (mesa.json or .js script) to MESA.
+ *
+ * Returns the import response when uploading mesa.json so callers can extract
+ * the resulting automation _id (e.g. to print a "View workflow" URL); returns
+ * null for script uploads, parse errors, and skipped files.
+ */
 async function uploadFile(
   client: MesaClient,
   filepath: string,
   automationKey: string,
   force: boolean
-): Promise<boolean> {
+): Promise<AutomationImportResponse | null> {
   if (!existsSync(filepath) || !lstatSync(filepath).isFile()) {
     console.log(`Skipping (not a file): ${filepath}`);
-    return false;
+    return null;
   }
 
   const filename = basename(filepath);
@@ -147,19 +154,19 @@ async function uploadFile(
 
     await client.uploadScript(automationKey, filename, code);
     console.log(`Success: Uploaded ${filename}`);
-    return true;
+    return null;
   }
 
   if (isMesaJsonFile(filename)) {
     const mesa = readMesaJsonWithReadme(filepath);
     if (!mesa) {
       console.log(`Error: Could not parse ${filename}`);
-      return false;
+      return null;
     }
 
     if (!mesa.config) {
       console.log(`Warning: ${filename} has no config section, skipping.`);
-      return false;
+      return null;
     }
 
     console.log(`Importing configuration from ${filename}...`);
@@ -172,11 +179,11 @@ async function uploadFile(
       console.log('Import completed (no log returned)');
     }
 
-    return true;
+    return response;
   }
 
   console.log(`Skipping ${filename} (not .js or mesa.json)`);
-  return false;
+  return null;
 }
 
 program
@@ -187,7 +194,7 @@ program
     const cwd = getCwd();
 
     try {
-      const { client } = getClientFromOptions(options);
+      const { config, client } = getClientFromOptions(options);
 
       // Default to mesa.json if no files specified
       const targetFiles = files.length > 0 ? files : ['mesa.json'];
@@ -201,9 +208,15 @@ program
       // Always force push for now (legacy behavior)
       const force = true;
 
+      // Track the most recent mesa.json import response so we can print the
+      // "View workflow" URL after the push completes.
+      let lastImportResponse: AutomationImportResponse | null = null;
+      let pushedAutomationKey: string | null = null;
+
       if (mesaJsonFile) {
         // Get automation key from mesa.json or option
         const automationKey = getAutomationKey(options.automation, mesaJsonFile, cwd);
+        pushedAutomationKey = automationKey;
 
         // Auto-discover script files referenced from mesa.json's
         // metadata.script fields so `mesa push mesa.json` syncs script edits
@@ -214,7 +227,7 @@ program
         }
 
         // First upload mesa.json to create/update the automation
-        await uploadFile(client, mesaJsonFile, automationKey, force);
+        lastImportResponse = await uploadFile(client, mesaJsonFile, automationKey, force);
 
         // Then upload all script files
         for (const file of scriptFiles) {
@@ -227,14 +240,33 @@ program
           console.log('Waiting 5 seconds before final mesa.json update...');
           await sleep(5000);
           console.log('Re-uploading mesa.json to finalize script references...');
-          await uploadFile(client, mesaJsonFile, automationKey, force);
+          lastImportResponse = await uploadFile(client, mesaJsonFile, automationKey, force);
         }
       } else {
         // Just upload the script files
         for (const file of scriptFiles) {
           const automationKey = getAutomationKey(options.automation, file, cwd);
+          pushedAutomationKey = automationKey;
           await uploadFile(client, file, automationKey, force);
         }
+      }
+
+      // Print the "View workflow" URL. Prefer the automation _id from the
+      // import response; fall back to fetching the automation by key when
+      // pushing scripts only (no mesa.json import response available).
+      let automationId: string | undefined = lastImportResponse?.automation?._id;
+      if (!automationId && pushedAutomationKey) {
+        try {
+          const fetched = await client.getAutomation(pushedAutomationKey);
+          automationId = fetched._id;
+        } catch {
+          // Ignore — we'll just skip the URL print if we can't resolve the id.
+        }
+      }
+      if (automationId) {
+        const automationUrl = buildAutomationUrl(config.api_url, config.uuid, automationId);
+        console.log('');
+        console.log(`View workflow: ${automationUrl}`);
       }
     } catch (error) {
       handleError(error);
