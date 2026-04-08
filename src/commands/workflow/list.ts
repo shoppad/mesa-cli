@@ -157,6 +157,7 @@ async function runListCommand(options: WorkflowListOptions): Promise<void> {
     const table = renderTable(tableData, {
       columns: [
         { header: 'Name', key: 'name', formatter: (v) => truncate(String(v), 40) },
+        { header: 'Key', key: 'key', formatter: (v) => truncate(String(v), 36) },
         { header: 'ID', key: 'id' },
         { header: 'Status', key: 'status' },
         { header: 'Updated', key: 'updated', formatter: (v) => formatRelative(v as string) },
