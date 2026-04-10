@@ -226,6 +226,34 @@ function wrapFieldValuesForBody(
 function stepToConfigStep(step: WorkflowStep, weight: number): AutomationStep {
   const fieldValues = wrapFieldValuesForBody(step.field_values, step.fields);
 
+  // Build selected_fields from ALL field values that are set. The UI uses
+  // this array to show which fields (including the credential dropdown)
+  // have values configured. Without it, the builder shows no selection
+  // even when the credential is set and working under the hood.
+  //
+  // We include: secret field keys (from field_values directly — these are
+  // connector-level fields not in operation.fields), AND body-wrapped
+  // field keys with the 'body.' prefix.
+  const selectedFields: string[] = [];
+
+  // Include ALL top-level field_values keys (catches secrets like
+  // domain_username_password which are set by the step builder but
+  // aren't in operation.fields)
+  for (const key of Object.keys(step.field_values)) {
+    selectedFields.push(key);
+  }
+
+  // For body-wrapped fields, also include the dotted 'body.{key}' paths
+  // that the UI expects for nested field selection
+  if (fieldValues.body && typeof fieldValues.body === 'object') {
+    if (!selectedFields.includes('body')) {
+      selectedFields.push('body');
+    }
+    for (const key of Object.keys(fieldValues.body as Record<string, unknown>)) {
+      selectedFields.push(`body.${key}`);
+    }
+  }
+
   return {
     key: step.key,
     name: step.name,
@@ -240,6 +268,7 @@ function stepToConfigStep(step: WorkflowStep, weight: number): AutomationStep {
       ...step.metadata,
       ...fieldValues,
     },
+    selected_fields: selectedFields.length > 0 ? selectedFields : undefined,
     weight,
   };
 }
