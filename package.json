@@ -1,7 +1,8 @@
 {
   "name": "mesa-cli",
-  "version": "2.0.5",
+  "version": "3.0.0",
   "description": "Command-line interface to download, watch and publish Mesa Scripts",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/shoppad/mesa-cli.git"
@@ -12,32 +13,37 @@
     "url": "https://github.com/shoppad/mesa-cli/issues"
   },
   "homepage": "https://getmesa.com",
-  "watch": {
-    "push": {
-      "patterns": [
-        "*.js"
-      ],
-      "runOnChangeOnly": true
-    }
+  "engines": {
+    "node": ">=18.0.0"
   },
   "scripts": {
-    "watch": "./scripts/cli.js watch",
-    "push": "./scripts/cli.js push",
-    "pull": "./scripts/cli.js pull",
-    "initialize": "./scripts/cli.js initialize",
-    "replay": "./scripts/cli.js replay",
-    "logs": "./scripts/cli.js logs",
-    "fields": "./scripts/generate-fields.js"
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "cli": "node dist/cli.js",
+    "dev": "npm run build && npm run cli",
+    "test": "node --test dist/**/*.test.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "bin": {
-    "mesa": "./scripts/cli.js",
-    "mesa-fields": "./scripts/generate-fields.js"
+    "mesa": "./dist/cli.js",
+    "mesa-fields": "./dist/generate-fields.js"
   },
+  "files": [
+    "dist/**/*"
+  ],
   "dependencies": {
-    "axios": "^0.18.0",
-    "commander": "^2.20.0",
-    "config-yml": "^0.10.3",
-    "shelljs": "^0.8.3",
-    "watch": "^1.0.2"
+    "@inquirer/prompts": "^8.2.0",
+    "axios": "^1.7.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
+    "open": "^10.1.0",
+    "ora": "^8.2.0",
+    "yaml": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
   }
 }
