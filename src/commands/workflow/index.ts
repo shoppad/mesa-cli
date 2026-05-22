@@ -10,6 +10,7 @@
  * - enable: Enable a workflow
  * - disable: Disable a workflow
  * - test: Run a test execution for a workflow
+ * - test-payload: Invoke a workflow input's testPayload hook and print the result
  * - step test: Run a test execution for a single step
  * - debug enable/disable/status: Manage debug logging
  */
@@ -22,6 +23,7 @@ import { registerTimeTravelCommand } from './time-travel.js';
 import { registerEnableCommand } from './enable.js';
 import { registerDisableCommand } from './disable.js';
 import { registerTestCommand } from './test.js';
+import { registerTestPayloadCommand } from './test-payload.js';
 import { registerStepTestCommand } from './step-test.js';
 import { registerDebugCommand } from './debug.js';
 
@@ -41,6 +43,7 @@ export function registerWorkflowCommand(program: Command): Command {
   registerEnableCommand(workflowCommand);
   registerDisableCommand(workflowCommand);
   registerTestCommand(workflowCommand);
+  registerTestPayloadCommand(workflowCommand);
   registerStepTestCommand(workflowCommand);
   registerDebugCommand(workflowCommand);
 
