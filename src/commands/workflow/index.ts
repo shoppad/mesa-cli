@@ -24,6 +24,7 @@ import { registerEnableCommand } from './enable.js';
 import { registerDisableCommand } from './disable.js';
 import { registerTestCommand } from './test.js';
 import { registerTestPayloadCommand } from './test-payload.js';
+import { registerRetrieveFieldsCommand } from './retrieve-fields.js';
 import { registerStepTestCommand } from './step-test.js';
 import { registerDebugCommand } from './debug.js';
 
@@ -44,6 +45,7 @@ export function registerWorkflowCommand(program: Command): Command {
   registerDisableCommand(workflowCommand);
   registerTestCommand(workflowCommand);
   registerTestPayloadCommand(workflowCommand);
+  registerRetrieveFieldsCommand(workflowCommand);
   registerStepTestCommand(workflowCommand);
   registerDebugCommand(workflowCommand);
 
