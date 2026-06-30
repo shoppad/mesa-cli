@@ -658,6 +658,27 @@ export class MesaClient {
   }
 
   /**
+   * Resolve a field's typeahead options (browse via search, resolve via value).
+   * Verifies typeahead behaviour + search filtering outside the dashboard.
+   * Sibling form values (for contextual typeaheads) are passed as extra params.
+   *
+   * GET /triggers/{type}/{triggerId}/typeahead/{fieldKey}.json?uuid&search&...
+   */
+  async invokeTypeahead(
+    triggerType: 'input' | 'output',
+    triggerId: string,
+    fieldKey: string,
+    params: Record<string, string | number | undefined> = {}
+  ): Promise<unknown> {
+    return this.adminRequest<unknown>(
+      'GET',
+      `triggers/${triggerType}/${triggerId}/typeahead/${fieldKey}.json`,
+      undefined,
+      { uuid: this.uuid, ...params }
+    );
+  }
+
+  /**
    * Execute a workflow test (full workflow from input trigger)
    * POST /triggers/{type}/{triggerId}/test.json
    */
