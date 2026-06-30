@@ -632,6 +632,53 @@ export class MesaClient {
   }
 
   /**
+   * Invoke a trigger's on-change JS hook (the same endpoint the builder's
+   * x-method buttons / x-tokens fields call). Used to exercise hooks like
+   * `updateLocalFields` ("Retrieve Fields") outside the dashboard.
+   *
+   * The current form values are passed as query params and merged into the
+   * trigger metadata server-side before the hook runs (e.g. `type` for the
+   * metaobject definition picker).
+   *
+   * GET /triggers/{type}/{triggerId}/onchange/{method}.json?uuid&...formValues
+   */
+  async invokeOnChange(
+    triggerType: 'input' | 'output',
+    triggerId: string,
+    method: string,
+    formValues: Record<string, string | number | undefined> = {}
+  ): Promise<unknown> {
+    return this.adminRequest<unknown>(
+      'GET',
+      `triggers/${triggerType}/${triggerId}/onchange/${method}.json`,
+      undefined,
+      // The onchange handler reads uuid from the query string explicitly.
+      { uuid: this.uuid, ...formValues }
+    );
+  }
+
+  /**
+   * Resolve a field's typeahead options (browse via search, resolve via value).
+   * Verifies typeahead behaviour + search filtering outside the dashboard.
+   * Sibling form values (for contextual typeaheads) are passed as extra params.
+   *
+   * GET /triggers/{type}/{triggerId}/typeahead/{fieldKey}.json?uuid&search&...
+   */
+  async invokeTypeahead(
+    triggerType: 'input' | 'output',
+    triggerId: string,
+    fieldKey: string,
+    params: Record<string, string | number | undefined> = {}
+  ): Promise<unknown> {
+    return this.adminRequest<unknown>(
+      'GET',
+      `triggers/${triggerType}/${triggerId}/typeahead/${fieldKey}.json`,
+      undefined,
+      { uuid: this.uuid, ...params }
+    );
+  }
+
+  /**
    * Execute a workflow test (full workflow from input trigger)
    * POST /triggers/{type}/{triggerId}/test.json
    */
