@@ -117,7 +117,7 @@ Example flow:
 ```
 Opening browser to authorize...
 
-Please visit: https://app.theshoppad.com/admin/mesa/cli/authorize
+Please visit: https://app.getmesa.com/cli/authorize?code=ABCD-1234
 And enter code: ABCD-1234
 
 Waiting for authorization... (press Ctrl+C to cancel)
