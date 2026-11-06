@@ -508,7 +508,7 @@ The authentication flow requires the MESA web app to be running.
 | Environment | App URL | API URL |
 |-------------|---------|---------|
 | Development | https://dev-mesa.theshoppad.com | https://dev-mesa.theshoppad.com/api |
-| Production | https://app.theshoppad.com | https://api.getmesa.com/v1/admin |
+| Production | https://app.getmesa.com | https://api.getmesa.com/v1/admin |
 
 ## Troubleshooting
 

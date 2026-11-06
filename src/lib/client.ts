@@ -280,7 +280,7 @@ export class MesaClient {
   private async cliRequest<T>(endpoint: string): Promise<T> {
     // Derive the CLI API base from the admin API URL
     // e.g., https://api.getmesa.com/v1/admin -> https://api.getmesa.com/v1/api/cli
-    // or https://app.theshoppad.com/api/admin -> https://app.theshoppad.com/api/cli
+    // or https://app.getmesa.com/api/admin -> https://app.getmesa.com/api/cli
     let cliBaseUrl: string;
     if (this.baseUrl.includes('/v1/admin')) {
       // Production: api.getmesa.com/v1/admin -> api.getmesa.com/v1/api/cli
@@ -877,5 +877,5 @@ export class AuthClient {
 export function getAuthBaseUrl(isDev: boolean): string {
   return isDev
     ? 'https://dev-mesa.theshoppad.com'
-    : 'https://app.theshoppad.com';
+    : 'https://app.getmesa.com';
 }
